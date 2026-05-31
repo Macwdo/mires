@@ -1,0 +1,4 @@
+interface:
+  display_name: "Macwdo Tester"
+  short_description: "Local app verification"
+  default_prompt: "Use $macwdo-tester, $portless, and $agent-browser to inspect the current app/testing context, run the routed local verification workflow, stop on the first real blocker, clean up any dev server you started unless asked otherwise, and report the result concisely."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Macwdo Reviewer"
+  short_description: "Review code against Macwdo patterns"
+  default_prompt: "Use $macwdo-reviewer and $macwdo-researcher to inspect current code, git status, git diff, changed files, relevant Macwdo skills, and external references when needed, then report findings first."
