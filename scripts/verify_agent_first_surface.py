@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 
@@ -12,6 +13,7 @@ AI_AGENTS = AI / "agents"
 AI_SKILLS = AI / "skills"
 ARCHIVED_CHANGES = ROOT / "openspec" / "changes" / "archive"
 CHANGE_WORKSPACE = ROOT / "openspec" / "changes"
+SRC = ROOT / "src"
 IGNORED_ACTIVE_PARTS = {".git", ".tmp", "__pycache__"}
 
 AGENTS = {
@@ -201,6 +203,42 @@ def check_no_legacy_granular_surfaces() -> None:
             fail(f"active compatibility redirect skill package: {relative}")
 
 
+def check_compatibility_tooling() -> None:
+    for path in [
+        SRC / "main.py",
+        SRC / "compatibility" / "__init__.py",
+        SRC / "compatibility" / "models.py",
+        SRC / "compatibility" / "parsing.py",
+        SRC / "compatibility" / "codex.py",
+    ]:
+        if not path.exists():
+            fail(f"missing compatibility tooling file: {path.relative_to(ROOT)}")
+
+    result = subprocess.run(
+        [sys.executable, str(SRC / "main.py"), "--target", "codex", "--root", str(ROOT)],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail(f"Codex compatibility check failed: {result.stderr.strip() or result.stdout.strip()}")
+
+    unsupported_result = subprocess.run(
+        [sys.executable, str(SRC / "main.py"), "--target", "unsupported-runtime", "--root", str(ROOT)],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if unsupported_result.returncode == 0:
+        fail("unsupported compatibility target unexpectedly succeeded")
+    if "unsupported compatibility target" not in unsupported_result.stderr:
+        fail("unsupported compatibility target did not report a clear error")
+
+
 assert_contains(read(AI / "AGENTS.md"), "orchestrator", AI / "AGENTS.md")
 assert_contains(read(AI / "AGENTS.md"), "Only one final implementation agent should edit files.", AI / "AGENTS.md")
 
@@ -228,6 +266,7 @@ if actual_skill_dirs != SKILLS:
 
 check_no_duplicate_runtime_trees()
 check_no_legacy_granular_surfaces()
+check_compatibility_tooling()
 
 for skill_name in SKILLS:
     validate_skill(skill_name)

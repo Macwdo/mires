@@ -38,6 +38,7 @@ There is no application build or automated test suite configured in this reposit
 - `sed -n '1,120p' .ai/skills/<skill>/SKILL.md`: review a skill quickly.
 - `git status --short`: confirm only intended files changed.
 - `python3 scripts/verify_agent_first_surface.py`: verify the public `.ai` agent hierarchy, skill packages, and reference paths.
+- `python3 src/main.py --target codex`: validate Codex compatibility from the canonical `.ai` assets.
 
 When adding executable scripts or generated assets, document their commands in the related skill and update this guide if they become repository-wide.
 
@@ -77,6 +78,8 @@ Existing project conventions override generic best practices, source-repo exampl
 Active Mires runtime discovery is agent-first and `.ai`-only. Public entrypoints are documented in `.ai/AGENTS.md` and `.ai/agents/**/AGENT.md`. Detailed implementation guidance lives under `references/` folders in `.ai/skills` and is loaded by the owning agent or workflow.
 
 When adding a public agent, update `.ai/AGENTS.md`, `.ai/agents`, and `scripts/verify_agent_first_surface.py` in the same change. Keep agents behavior-focused and keep patterns, examples, checklists, and anti-patterns in skills. Do not add compatibility skill packages or public granular skill redirects when a reference can be owned by an existing agent or workflow.
+
+Compatibility tooling lives under `src/compatibility` and must treat `.ai/agents` and `.ai/skills` as runtime-agnostic source assets. Runtime-specific behavior belongs in adapters such as the Codex adapter, and maintainers should not edit a second runtime-specific authoring tree.
 
 ## Testing Guidelines
 

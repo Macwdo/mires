@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(router=health_router, prefix="/health", tags=["Health"])
+app.include_router(router=items_router, prefix="/items", tags=["Items"])
 ```
 
 ```python
@@ -50,6 +51,22 @@ async def get_db_session(*, request: Request) -> AsyncGenerator[AsyncSession, No
     engine = request.app.state.engine
     async with get_session(engine=engine) as session:
         yield session
+```
+
+Keep external clients behind dependency factories too. The helper that builds kwargs can read settings; the dependency constructs the client at the edge so routes and services can receive fakes in tests.
+
+```python
+import boto3
+
+from src.services.storage import get_s3_client_kwargs, get_queue_client_kwargs
+
+
+def get_s3_client():
+    return boto3.client("s3", **get_s3_client_kwargs())
+
+
+def get_queue_client():
+    return boto3.client("sqs", **get_queue_client_kwargs())
 ```
 
 ```python

@@ -65,6 +65,30 @@ def process_thing_task(processing_id: int, thing_id: int) -> None:
     asyncio.run(run())
 ```
 
+When a task needs external clients, create them inside the task wrapper and pass them into the service with scalar ids. Do not pass request sessions, ORM objects, or SDK clients through the broker message:
+
+```python
+@shared_task
+def import_items_task(processing_id: int, file_id: int, vendor_id: int) -> None:
+    async def run() -> None:
+        s3_client = boto3.client("s3", **get_s3_client_kwargs())
+        embedding_client = get_embedding_client()
+        llm_client = get_llm_client()
+
+        async with db.get_engine(postgres_uri=settings.POSTGRES_URI) as engine:
+            await import_items(
+                processing_id=processing_id,
+                file_id=file_id,
+                vendor_id=vendor_id,
+                engine=engine,
+                s3_client=s3_client,
+                embedding_client=embedding_client,
+                llm_client=llm_client,
+            )
+
+    asyncio.run(run())
+```
+
 ## Rules
 
 - Keep Celery configuration in one module. Do not scatter broker setup across tasks or services.

@@ -30,3 +30,7 @@ Skills are owner-loaded reference packages, not a public routing catalog. Agents
 - Backend stack: `backend`, `python`, `django`, `fastapi`, `sqlalchemy`, `postgres`, `celery`, `langgraph`
 - Frontend stack: `frontend`, `react`, `next`, `typescript`
 - Cross-cutting: `testing`, `review`, `project-conventions`, `openspec`
+
+## Compatibility Tooling
+
+The `.ai/agents` and `.ai/skills` trees are runtime-agnostic source assets. Python compatibility tooling under `src/compatibility` reads those assets and applies runtime-specific adapter checks, starting with Codex. Run `python3 src/main.py --target codex` from the repository root to validate Codex compatibility.

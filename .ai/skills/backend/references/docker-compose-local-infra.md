@@ -73,6 +73,42 @@ services:
 
 Add a one-shot provisioning script or service that waits for LocalStack health and creates queues before workers start.
 
+For S3-compatible local storage, pair the service with a one-shot bucket provisioner. Keep the bucket name in `.env`, wait for MinIO health, and make destructive reset behavior explicit:
+
+```yaml
+services:
+  minio:
+    image: minio/minio
+    command: server /data --address 0.0.0.0:9000 --console-address :9001
+    environment:
+      MINIO_ROOT_USER: miniouser
+      MINIO_ROOT_PASSWORD: miniopassword
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  createbucket:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_AWS_BUCKET_NAME: ${MINIO_AWS_BUCKET_NAME}
+    entrypoint: >
+      sh -c "
+        mc config host add --quiet --api s3v4 minio http://minio:9000 miniouser miniopassword;
+        mc mb --quiet minio/$${MINIO_AWS_BUCKET_NAME} || true;
+      "
+    restart: "no"
+
+volumes:
+  minio_data:
+```
+
 ## Rules
 
 - Give persistent infrastructure healthchecks and make dependent services wait on health.

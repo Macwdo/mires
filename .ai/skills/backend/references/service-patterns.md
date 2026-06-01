@@ -45,6 +45,56 @@ async def do_work(
         return result
 ```
 
+For small route-owned operations, pass the request-scoped session and concrete collaborators explicitly. Keep optional domain fields before infrastructure dependencies and keep the signature keyword-only:
+
+```python
+async def create_product(
+    *,
+    sku: str,
+    name: str,
+    price: float,
+    vendor_id: int,
+    db_session: AsyncSession,
+    embedding_client: EmbeddingClient,
+    description: str | None = None,
+    brand: str | None = None,
+    category: str | None = None,
+) -> Product:
+    product = Product(
+        sku=sku,
+        name=name,
+        price=price,
+        vendor_id=vendor_id,
+        description=description,
+        brand=brand,
+        category=category,
+    )
+    db_session.add(product)
+    await db_session.flush()
+    return product
+```
+
+For infrastructure-backed services, build clients at the route or task boundary and pass them in. The service may use settings for domain constants such as bucket names, but the network client remains injectable:
+
+```python
+async def download_file(
+    *,
+    file_id: int,
+    s3_client: S3Client,
+    db_session: AsyncSession,
+) -> Path:
+    file = await db_session.get(File, file_id)
+    if file is None:
+        raise FileNotFoundError(f"File with ID {file_id} not found")
+
+    url = generate_get_presigned_url(
+        bucket_name=settings.FILE_BUCKET_NAME,
+        key=file.key,
+        s3_client=s3_client,
+    )
+    return await stream_url_to_temp_file(url=url, suffix=f".{file.extension}")
+```
+
 ## Boundary Rules
 
 - Routes should orchestrate HTTP concerns and delegate business logic.

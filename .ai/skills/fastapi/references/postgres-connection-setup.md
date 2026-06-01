@@ -126,6 +126,59 @@ async def health(db: AsyncSession = Depends(get_db)):
 
 It is also acceptable to create the async engine during `lifespan` and store it on `app.state` when matching an existing app like this repo. Even in that variant, the engine must still be app-lifetime, not request-lifetime.
 
+```python
+import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from pydantic import PostgresDsn
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def get_engine(
+    *,
+    postgres_uri: PostgresDsn,
+    pool_pre_ping: bool = True,
+    pool_size: int = 10,
+    pool_timeout: int = 30,
+    pool_recycle: int = 1800,
+) -> AsyncGenerator[AsyncEngine, None]:
+    engine = create_async_engine(
+        url=str(postgres_uri),
+        pool_pre_ping=pool_pre_ping,
+        pool_size=pool_size,
+        pool_timeout=pool_timeout,
+        pool_recycle=pool_recycle,
+    )
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+        logger.info("Disposed database engine")
+
+
+async def get_db_session(*, request: Request) -> AsyncGenerator[AsyncSession, None]:
+    session_factory = async_sessionmaker(
+        request.app.state.engine,
+        expire_on_commit=False,
+    )
+    async with session_factory() as session:
+        yield session
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with get_engine(postgres_uri=settings.POSTGRES_URI) as engine:
+        app.state.engine = engine
+        yield
+```
+
 ## Project Shape
 
 Prefer this structure unless the repo already has a stronger convention:

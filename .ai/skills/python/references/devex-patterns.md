@@ -42,6 +42,54 @@ Use this skill when changing project tooling, local commands, README setup instr
 - Prefer fixing lint issues in touched code only unless the user asks for a cleanup pass.
 - Keep pre-commit hooks aligned with pyproject tooling.
 
+Minimal `pyproject.toml` shape for a new Python service:
+
+```toml
+[project]
+name = "my-service"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pre-commit",
+  "ruff",
+]
+
+[tool.ruff]
+target-version = "py312"
+exclude = ["__pycache__", ".git", ".venv", "build", "dist", "alembic/**"]
+include = ["**/*.py", "**/*.pyi"]
+line-length = 131
+fix = true
+preview = true
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "ARG",
+  "TID",
+  "RUF",
+  "SIM",
+  "C4",
+  "ERA",
+  "PIE",
+  "PERF",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+```
+
 ## Test Rules
 
 - Use pytest for tests.
