@@ -15,6 +15,7 @@ ARCHIVED_CHANGES = ROOT / "openspec" / "changes" / "archive"
 CHANGE_WORKSPACE = ROOT / "openspec" / "changes"
 SRC = ROOT / "src"
 IGNORED_ACTIVE_PARTS = {".git", ".tmp", "__pycache__"}
+LOCAL_RUNTIME_PARTS = {".codex", ".opencode"}
 
 AGENTS = {
     "orchestrator": {
@@ -108,6 +109,8 @@ def is_ignored_path(path: Path) -> bool:
         return True
     if any(part in IGNORED_ACTIVE_PARTS for part in relative.parts):
         return True
+    if any(part in LOCAL_RUNTIME_PARTS for part in relative.parts):
+        return True
     if ARCHIVED_CHANGES in path.parents:
         return True
     if CHANGE_WORKSPACE in path.parents:
@@ -185,8 +188,22 @@ def check_no_duplicate_runtime_trees() -> None:
         ROOT / ".opencode",
     }
     for path in forbidden_dirs:
-        if path.exists():
+        if path.exists() and tracked_files_under(path):
             fail(f"duplicate runtime tree is active: {path.relative_to(ROOT)}")
+
+
+def tracked_files_under(path: Path) -> list[str]:
+    result = subprocess.run(
+        ["git", "ls-files", str(path.relative_to(ROOT))],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    return [line for line in result.stdout.splitlines() if line.strip()]
 
 
 def check_no_legacy_granular_surfaces() -> None:
