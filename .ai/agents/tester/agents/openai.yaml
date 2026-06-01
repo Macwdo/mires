@@ -1,0 +1,8 @@
+interface:
+  display_name: "tester"
+  short_description: "Classify and run unit, integration, and end-to-end verification without production code changes."
+  default_prompt: "Use $tester. Classify the coverage needed, reuse existing fixtures, define regression tests, use skills/testing, and avoid production code changes unless explicitly requested."
+metadata:
+  name: "tester"
+  parent: "orchestrator"
+  children: []

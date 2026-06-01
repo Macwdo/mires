@@ -1,0 +1,8 @@
+interface:
+  display_name: "backend"
+  short_description: "Implement Python backend work after investigation, using repository conventions first."
+  default_prompt: "Use $backend. Inspect existing backend conventions first, report findings, and modify files only when selected as the final implementation agent."
+metadata:
+  name: "backend"
+  parent: "orchestrator"
+  children: []

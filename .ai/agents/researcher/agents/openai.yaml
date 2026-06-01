@@ -1,0 +1,8 @@
+interface:
+  display_name: "researcher"
+  short_description: "Research official external docs, source repositories, and tradeoffs without modifying files."
+  default_prompt: "Use $researcher. Prefer official docs and source repositories, separate facts from recommendations, and return sourced findings without modifying files."
+metadata:
+  name: "researcher"
+  parent: "orchestrator"
+  children: []

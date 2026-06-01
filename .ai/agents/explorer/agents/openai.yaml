@@ -1,0 +1,8 @@
+interface:
+  display_name: "explorer"
+  short_description: "Inspect the repo, map ownership and entrypoints, and report existing patterns."
+  default_prompt: "Use $explorer. Map files, entrypoints, dependencies, and nearby patterns. Do not modify files."
+metadata:
+  name: "explorer"
+  parent: "orchestrator"
+  children: []

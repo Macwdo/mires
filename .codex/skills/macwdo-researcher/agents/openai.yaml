@@ -1,4 +1,0 @@
-interface:
-  display_name: "Macwdo Researcher"
-  short_description: "Internet-first reference research"
-  default_prompt: "Use $macwdo-researcher to search the internet first, verify claims against authoritative sources, stop and ask when references are missing or conflicting, and produce a concise cited answer."

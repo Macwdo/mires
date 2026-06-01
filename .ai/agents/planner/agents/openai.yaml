@@ -1,0 +1,8 @@
+interface:
+  display_name: "planner"
+  short_description: "Clarify ambiguity and produce a concrete implementation plan without guessing missing infrastructure choices."
+  default_prompt: "Use $planner. Inspect the repo first, identify open questions, and produce a concrete plan without assuming defaults like Redis, Postgres, or a cloud provider unless they are specified."
+metadata:
+  name: "planner"
+  parent: "orchestrator"
+  children: []

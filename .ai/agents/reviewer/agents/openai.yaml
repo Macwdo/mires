@@ -1,0 +1,8 @@
+interface:
+  display_name: "reviewer"
+  short_description: "Review correctness, risk, maintainability, performance, security, and missing tests."
+  default_prompt: "Use $reviewer. Lead with findings ordered by severity and do not modify files unless explicitly requested."
+metadata:
+  name: "reviewer"
+  parent: "orchestrator"
+  children: []

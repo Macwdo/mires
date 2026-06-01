@@ -1,0 +1,15 @@
+interface:
+  display_name: "orchestrator"
+  short_description: "Default entrypoint for non-trivial work. Delegates investigation, merges findings, and selects one implementation agent."
+  default_prompt: "Use $orchestrator. Classify the task as simple, medium, or complex, delegate when needed, merge findings from specialists, and allow only one final implementation agent to edit files."
+metadata:
+  name: "orchestrator"
+  parent: ""
+  children:
+    - "explorer"
+    - "backend"
+    - "frontend"
+    - "tester"
+    - "reviewer"
+    - "planner"
+    - "researcher"

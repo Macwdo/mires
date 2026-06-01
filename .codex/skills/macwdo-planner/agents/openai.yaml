@@ -1,4 +1,0 @@
-interface:
-  display_name: "Macwdo Planner"
-  short_description: "Plan work using Macwdo skills"
-  default_prompt: "Use $macwdo-planner and $macwdo-researcher to inspect the request and repo, verify external assumptions with internet references, select relevant Macwdo skills, and produce a decision-complete implementation plan."

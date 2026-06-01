@@ -1,0 +1,8 @@
+interface:
+  display_name: "frontend"
+  short_description: "Implement React and Next.js work after investigation, using repository conventions first."
+  default_prompt: "Use $frontend. Inspect existing frontend conventions first, report findings, and modify files only when selected as the final implementation agent."
+metadata:
+  name: "frontend"
+  parent: "orchestrator"
+  children: []
