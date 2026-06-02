@@ -1,0 +1,267 @@
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import shutil
+from typing import Any
+
+from compatibility.models import AgentAsset, AssetInventory, SkillAsset, ValidationMessage
+
+
+SUPPORTED_TARGET = "opencode"
+AGENTS_DIR = "agents"
+SKILLS_DIR = "skills"
+MIRES_DIR = "mires"
+SKILL_FILE = "SKILL.md"
+NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def validate_opencode(inventory: AssetInventory) -> tuple[ValidationMessage, ...]:
+    errors: list[ValidationMessage] = list(inventory.errors)
+    for agent in inventory.agents:
+        _validate_name(agent.name, agent.path, "agent", errors)
+        if not agent.description.strip():
+            errors.append(ValidationMessage(agent.path, "missing OpenCode agent description"))
+    for skill in inventory.skills:
+        _validate_name(skill.name, skill.path, "skill", errors)
+        if not skill.description.strip():
+            errors.append(ValidationMessage(skill.path, "missing OpenCode skill description"))
+        if len(skill.description) > 1024:
+            errors.append(ValidationMessage(skill.path, "OpenCode skill description exceeds 1024 characters"))
+    return tuple(errors)
+
+
+def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_run: bool = False) -> int:
+    agents = tuple(sorted(inventory.agents, key=lambda agent: agent.name))
+    skills = tuple(sorted(inventory.skills, key=lambda skill: skill.name))
+    skills_by_name = {skill.name: skill for skill in skills}
+    bundle_plans = tuple((agent, referenced_skills(agent, skills_by_name)) for agent in agents)
+    rendered_agents = tuple((agent, render_agent_markdown(agent, agent_skills, opencode_home)) for agent, agent_skills in bundle_plans)
+    rendered_skills = tuple((skill, render_skill_markdown(skill)) for skill in skills)
+    validate_install_output(rendered_agents, rendered_skills, bundle_plans)
+
+    if dry_run:
+        print(f"Dry run: would install {len(rendered_agents)} OpenCode agents into {opencode_home}")
+        for agent, agent_skills in bundle_plans:
+            print(f"- would write {agent_file_path(opencode_home, agent)}")
+            print(f"- would refresh {agent_bundle_path(opencode_home, agent)}")
+            for skill in agent_skills:
+                print(f"  - agent may load skill {skill.name}")
+        for skill in skills:
+            print(f"- would refresh {skill_package_path(opencode_home, skill)}")
+        return len(rendered_agents)
+
+    agents_path = opencode_home / AGENTS_DIR
+    agents_path.mkdir(parents=True, exist_ok=True)
+    for agent, content in rendered_agents:
+        agent_file_path(opencode_home, agent).write_text(content)
+    for agent, agent_skills in bundle_plans:
+        write_agent_bundle(opencode_home, agent, agent_skills)
+    for skill, content in rendered_skills:
+        write_skill_package(opencode_home, skill, content)
+    return len(rendered_agents)
+
+
+def agent_file_path(opencode_home: Path, agent: AgentAsset) -> Path:
+    return opencode_home / AGENTS_DIR / f"{agent.name}.md"
+
+
+def agent_bundle_path(opencode_home: Path, agent: AgentAsset) -> Path:
+    return opencode_home / MIRES_DIR / AGENTS_DIR / agent.name
+
+
+def skill_package_path(opencode_home: Path, skill: SkillAsset) -> Path:
+    return opencode_home / SKILLS_DIR / skill.name
+
+
+def render_agent_markdown(
+    agent: AgentAsset,
+    skills: tuple[SkillAsset, ...] = (),
+    opencode_home: Path | None = None,
+) -> str:
+    opencode_home = (opencode_home or Path.home() / ".config" / "opencode").expanduser().resolve()
+    interface = _mapping(agent.metadata.get("interface"))
+    base_prompt = normalize_default_prompt(_string_value(interface.get("default_prompt")) or agent.description, agent)
+    instructions = render_agent_instructions(opencode_home, agent, skills, base_prompt)
+    description = _string_value(interface.get("short_description")) or agent.description
+    return "\n".join(
+        [
+            "---",
+            f"description: {_yaml_string(description)}",
+            f"mode: {agent_mode(agent)}",
+            "---",
+            instructions,
+            "",
+        ]
+    )
+
+
+def render_agent_instructions(
+    opencode_home: Path,
+    agent: AgentAsset,
+    skills: tuple[SkillAsset, ...],
+    base_prompt: str,
+) -> str:
+    bundle_path = str(agent_bundle_path(opencode_home, agent))
+    skill_lines = "\n".join(f"- {skill.name}" for skill in skills) if skills else "- No Mires skills are required for this agent."
+    return f"""
+You are the Mires {agent.name} agent.
+
+Primary behavior:
+{base_prompt}
+
+Use the generated agent instructions as the authoritative role guide:
+{bundle_path}/AGENT.md
+
+Work from the repository's existing conventions before introducing new patterns. Keep changes scoped to the delegated task and report blockers, risks, and validation results clearly.
+
+Load Mires skills only when they are relevant to the current task. Available generated OpenCode skill packages:
+{skill_lines}
+
+This file is generated by Mires. Do not edit generated files directly; update the canonical Mires source assets and run the installer again.
+""".strip()
+
+
+def render_skill_markdown(skill: SkillAsset) -> str:
+    return add_generated_note(rewrite_runtime_references(skill.path.read_text()), "skill")
+
+
+def agent_mode(agent: AgentAsset) -> str:
+    return "primary" if agent.name == "orchestrator" else "subagent"
+
+
+def referenced_skills(agent: AgentAsset, skills_by_name: dict[str, SkillAsset]) -> tuple[SkillAsset, ...]:
+    text = agent.path.read_text()
+    names = sorted(set(re.findall(r"`skills/([a-z0-9-]+)`", text)))
+    return tuple(skills_by_name[name] for name in names if name in skills_by_name)
+
+
+def write_agent_bundle(opencode_home: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:
+    bundle_path = agent_bundle_path(opencode_home, agent)
+    if bundle_path.exists():
+        shutil.rmtree(bundle_path)
+    bundle_path.mkdir(parents=True, exist_ok=True)
+
+    copy_generated_tree(agent.path.parent, bundle_path)
+    write_bundle_manifest(bundle_path, agent, skills)
+
+
+def write_skill_package(opencode_home: Path, skill: SkillAsset, skill_content: str) -> None:
+    package_path = skill_package_path(opencode_home, skill)
+    if package_path.exists():
+        shutil.rmtree(package_path)
+    package_path.mkdir(parents=True, exist_ok=True)
+    copy_generated_tree(skill.path.parent, package_path)
+    (package_path / SKILL_FILE).write_text(skill_content)
+
+
+def copy_generated_tree(source: Path, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    for source_path in sorted(source.rglob("*")):
+        relative_path = source_path.relative_to(source)
+        if any(part == "__pycache__" for part in relative_path.parts) or source_path.suffix == ".pyc":
+            continue
+        destination_path = destination / relative_path
+        if source_path.is_dir():
+            destination_path.mkdir(parents=True, exist_ok=True)
+            continue
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        if source_path.suffix in {".md", ".yaml", ".yml", ".toml"}:
+            destination_path.write_text(rewrite_runtime_references(source_path.read_text()))
+        else:
+            shutil.copy2(source_path, destination_path)
+
+
+def write_bundle_manifest(bundle_path: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:
+    lines = [
+        "# Generated by Mires",
+        "",
+        f"- Agent: {agent.name}",
+        f"- Skills: {', '.join(skill.name for skill in skills) if skills else 'none'}",
+    ]
+    (bundle_path / "MANIFEST.md").write_text("\n".join(lines) + "\n")
+
+
+def validate_install_output(
+    rendered_agents: tuple[tuple[AgentAsset, str], ...],
+    rendered_skills: tuple[tuple[SkillAsset, str], ...],
+    bundle_plans: tuple[tuple[AgentAsset, tuple[SkillAsset, ...]], ...],
+) -> None:
+    for agent, content in rendered_agents:
+        if ".ai/" in content:
+            raise ValueError(f"generated OpenCode agent contains repository-local .ai path for {agent.name}")
+        frontmatter = _frontmatter(content)
+        if _string_value(frontmatter.get("description")) == "":
+            raise ValueError(f"generated OpenCode agent is missing description for {agent.name}")
+        if frontmatter.get("mode") not in {"primary", "subagent", "all"}:
+            raise ValueError(f"generated OpenCode agent has unsupported mode for {agent.name}")
+    for skill, content in rendered_skills:
+        if ".ai/" in content:
+            raise ValueError(f"generated OpenCode skill contains repository-local .ai path for {skill.name}")
+        frontmatter = _frontmatter(content)
+        if frontmatter.get("name") != skill.name:
+            raise ValueError(f"generated OpenCode skill name mismatch for {skill.name}")
+        if _string_value(frontmatter.get("description")) == "":
+            raise ValueError(f"generated OpenCode skill is missing description for {skill.name}")
+    for agent, skills in bundle_plans:
+        if not agent.path.exists():
+            raise ValueError(f"missing source agent file for {agent.name}: {agent.path}")
+        for skill in skills:
+            if not skill.path.exists():
+                raise ValueError(f"missing source skill file for {agent.name}: {skill.path}")
+
+
+def add_generated_note(text: str, asset_type: str) -> str:
+    if not text.startswith("---\n"):
+        return f"<!-- Generated by Mires for OpenCode. Edit canonical Mires source assets instead. -->\n\n{text}"
+    end = text.find("\n---", 4)
+    if end == -1:
+        return text
+    insert_at = end + len("\n---")
+    note = f"\n\n<!-- Generated by Mires for OpenCode. Edit canonical Mires {asset_type} source assets instead. -->"
+    return text[:insert_at] + note + text[insert_at:]
+
+
+def rewrite_runtime_references(text: str) -> str:
+    return text.replace(".ai/skills/", "skills/").replace(".ai/agents/", "agents/")
+
+
+def normalize_default_prompt(prompt: str, agent: AgentAsset) -> str:
+    prefix = f"Use ${agent.name}. "
+    if prompt.startswith(prefix):
+        return prompt[len(prefix) :]
+    return prompt
+
+
+def _validate_name(name: str, path: Path, asset_type: str, errors: list[ValidationMessage]) -> None:
+    if not NAME_PATTERN.fullmatch(name) or len(name) > 64:
+        errors.append(ValidationMessage(path, f"invalid OpenCode {asset_type} name: {name}"))
+
+
+def _frontmatter(text: str) -> dict[str, str]:
+    if not text.startswith("---\n"):
+        raise ValueError("generated OpenCode Markdown is missing front matter")
+    end = text.find("\n---", 4)
+    if end == -1:
+        raise ValueError("generated OpenCode Markdown has unterminated front matter")
+    values: dict[str, str] = {}
+    for line in text[4:end].splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if ":" not in line:
+            raise ValueError(f"generated OpenCode Markdown has invalid front matter line: {line}")
+        key, raw_value = line.split(":", 1)
+        values[key.strip()] = raw_value.strip().strip('"')
+    return values
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _string_value(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _yaml_string(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'

@@ -25,6 +25,7 @@ Run these commands from the repository root:
 ```bash
 python3 scripts/verify_agent_first_surface.py
 python3 src/main.py --target codex
+python3 src/main.py --target opencode
 ```
 
 Useful inspection commands:
@@ -71,9 +72,9 @@ If a skill references files under `references/`, make sure those paths exist and
 
 ## Compatibility
 
-The `.ai/agents` and `.ai/skills` trees are runtime-agnostic source assets. Runtime-specific checks belong in adapters under `src/compatibility`, starting with the Codex target.
+The `.ai/agents` and `.ai/skills` trees are runtime-agnostic source assets. Runtime-specific checks belong in adapters under `src/compatibility` for supported generated targets such as Codex and OpenCode.
 
-Use `python3 src/main.py --target codex` to validate runtime compatibility. Use `python3 scripts/verify_agent_first_surface.py` for the broader repository surface check.
+Use `python3 src/main.py --target codex` or `python3 src/main.py --target opencode` to validate runtime compatibility. Use `python3 scripts/verify_agent_first_surface.py` for the broader repository surface check.
 
 To install the canonical Mires agents into Codex, run:
 
@@ -95,6 +96,26 @@ Use an isolated Codex home for tests or validation:
 
 ```bash
 python3 src/main.py install --target codex --codex-home /tmp/mires-codex-home
+```
+
+To install the canonical Mires agents and skills into OpenCode, run:
+
+```bash
+python3 src/main.py install --target opencode
+```
+
+This writes generated Markdown agents to `$HOME/.config/opencode/agents/`, generated OpenCode skills to `$HOME/.config/opencode/skills/`, and private generated agent bundles to `$HOME/.config/opencode/mires/agents/<agent-name>/`. The canonical source remains `.ai/agents` and `.ai/skills`; files under `$HOME/.config/opencode/` are generated runtime output.
+
+Preview the OpenCode install without writing files:
+
+```bash
+python3 src/main.py install --target opencode --dry-run
+```
+
+Use an isolated OpenCode home for tests or validation:
+
+```bash
+python3 src/main.py install --target opencode --opencode-home /tmp/mires-opencode-home
 ```
 
 ## Security

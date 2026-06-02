@@ -56,9 +56,6 @@ LEGACY_GRANULAR_PATTERNS = [
         r"\bmires-(?:agent-testing|backend-orchestrator|python-|react-query|react-hook-form|typescript-|zod)\b",
         r"\bopenspec-(?:apply-change|archive-change|explore|propose)\b",
         r"\.codex/skills",
-        r"\.opencode",
-        r"\bOpenCode\b",
-        r"\bopencode\b",
     ]
 ]
 
@@ -203,7 +200,7 @@ def tracked_files_under(path: Path) -> list[str]:
     )
     if result.returncode != 0:
         return []
-    return [line for line in result.stdout.splitlines() if line.strip()]
+    return [line for line in result.stdout.splitlines() if line.strip() and (ROOT / line).exists()]
 
 
 def check_no_legacy_granular_surfaces() -> None:
@@ -227,20 +224,22 @@ def check_compatibility_tooling() -> None:
         SRC / "compatibility" / "models.py",
         SRC / "compatibility" / "parsing.py",
         SRC / "compatibility" / "codex.py",
+        SRC / "compatibility" / "opencode.py",
     ]:
         if not path.exists():
             fail(f"missing compatibility tooling file: {path.relative_to(ROOT)}")
 
-    result = subprocess.run(
-        [sys.executable, str(SRC / "main.py"), "--target", "codex", "--root", str(ROOT)],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if result.returncode != 0:
-        fail(f"Codex compatibility check failed: {result.stderr.strip() or result.stdout.strip()}")
+    for target in ["codex", "opencode"]:
+        result = subprocess.run(
+            [sys.executable, str(SRC / "main.py"), "--target", target, "--root", str(ROOT)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if result.returncode != 0:
+            fail(f"{target} compatibility check failed: {result.stderr.strip() or result.stdout.strip()}")
 
     unsupported_result = subprocess.run(
         [sys.executable, str(SRC / "main.py"), "--target", "unsupported-runtime", "--root", str(ROOT)],
