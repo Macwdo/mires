@@ -4,11 +4,13 @@ Use the orchestrator as the default entrypoint for non-trivial work.
 
 - For any non-trivial engineering task, route through `.ai/agents/orchestrator/AGENT.md` first.
 - The user should not need to manually request subagents.
-- The orchestrator decides whether delegation is needed.
+- Broad implementation requests such as "implement a new API", "build a feature", or "add product support" are non-trivial by default and must be orchestrated.
+- The orchestrator should delegate to every specialist that can materially improve quality, even when this uses more tokens.
 - Simple tasks can be handled directly when no specialist investigation is needed.
-- Medium and complex tasks should be delegated to specialist agents.
+- Medium and complex tasks must be delegated to specialist agents before implementation.
 - Most specialist agents should inspect and report before implementation starts.
 - Only one final implementation agent should edit files.
+- Tester and reviewer should be involved for implementation work unless the change is clearly documentation-only or validation is impossible.
 - Prefer project conventions over generic advice.
 - Always inspect existing code patterns before proposing new patterns.
 
