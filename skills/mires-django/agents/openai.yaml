@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires Django"
+  short_description: "Personal Django and DRF engineering standards"
+  default_prompt: "Use $mires-django to apply my Django and DRF standards to this task."

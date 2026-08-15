@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires React"
+  short_description: "Personal React and Next.js engineering standards"
+  default_prompt: "Use $mires-react to apply my React and Next.js standards to this task."

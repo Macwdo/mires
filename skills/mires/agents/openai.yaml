@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires"
+  short_description: "Personal engineering preferences and operating model"
+  default_prompt: "Use $mires to apply my personal engineering preferences and choose the right workflow for this task."

@@ -1,123 +1,94 @@
 # Mires
 
-Mires is an agent-first repository for AI runtime assets and owner-loaded reference skills. The canonical source tree is `.ai/`, and the Python tooling in `src/compatibility` validates those assets for supported runtime targets.
+Mires is Macwdo's personal engineering agent, versioned as one repository. It owns a catalog of skills, subagents, rules, MCP servers, and hooks, and installs a chosen slice of that catalog into a supported runtime.
+
+`state.yml` is the definition. Every catalog entry is declared there and backed by real files in the matching directory. Nothing is discovered implicitly: an entry that is not declared is an error, and a declared entry without files is an error.
 
 ## Repository Layout
 
-- `.ai/AGENTS.md`: public routing guide and runtime entrypoint documentation.
-- `.ai/agents/<agent>/AGENT.md`: agent behavior, delegation rules, and front matter.
-- `.ai/agents/<agent>/agents/openai.yaml`: runtime metadata for an agent.
-- `.ai/skills/<skill>/SKILL.md`: owner-loaded skill guidance.
-- `.ai/skills/<skill>/references/`: supporting reference material that is too detailed for the main skill file.
-- `src/compatibility/`: runtime-agnostic asset parsing and target-specific validation.
-- `scripts/verify_agent_first_surface.py`: repository-wide verification for the public `.ai` surface.
+| Path | Contents |
+| --- | --- |
+| `state.yml` | The catalog definition and the profiles that select from it. |
+| `skills/<slug>/SKILL.md` | Skill guidance, with detailed material under `references/`. |
+| `subagents/<slug>/AGENT.md` | Subagent behavior, with runtime metadata in `agents/openai.yaml`. |
+| `rules/<slug>.md` | Standing rules that apply across work. |
+| `mcps/<slug>/mcp.json` | MCP server configuration. |
+| `hooks/<slug>/hooks.json` | Hook definitions and their scripts. |
+| `src/mires/` | The `mires` CLI: state parser, compatibility adapters, scripts, and tests. |
+| `openspec/` | Spec-driven change proposals and their archive. |
 
-## Core Model
+## The State Definition
 
-The repository uses orchestrator-first routing. For non-trivial engineering work, start from `.ai/agents/orchestrator/AGENT.md`; the orchestrator classifies the task and decides whether specialist agents should inspect before implementation.
+Each section is a list of entries with `name`, `slug`, and `description`. Skills also carry `visibility`, which decides how they are validated: `public` skills must ship `agents/openai.yaml` invoking `$<slug>`, and `private` skills must keep the six standard sections (`## When To Use`, `## Core Rules`, `## Preferred Patterns`, `## Anti-Patterns`, `## Checklist`, `## References Index`).
 
-Agents are public routing surfaces. Skills are reference packages loaded by an owning agent or workflow. Keep behavior and delegation rules in agents, and keep detailed patterns, examples, checklists, and anti-patterns in skills or their references.
+An entry lives at `<section>/<slug>` by default; set `path` to override it.
 
-## Local Checks
-
-Run these commands from the repository root:
-
-```bash
-python3 scripts/verify_agent_first_surface.py
-python3 src/main.py --target codex
-python3 src/main.py --target opencode
-```
-
-Useful inspection commands:
-
-```bash
-rg --files .ai
-sed -n '1,120p' .ai/agents/orchestrator/AGENT.md
-sed -n '1,120p' .ai/skills/project-conventions/SKILL.md
-git status --short
-```
-
-## Adding Or Changing Agents
-
-When adding a public agent, update all related surfaces in the same change:
-
-- `.ai/AGENTS.md`
-- `.ai/agents/<agent>/AGENT.md`
-- `.ai/agents/<agent>/agents/openai.yaml`
-- `scripts/verify_agent_first_surface.py`
-
-Agent front matter should include `name`, `description`, `parent`, and `children`. Keep directories lowercase kebab-case.
-
-## Adding Or Changing Skills
-
-Each skill must include a `SKILL.md` with YAML front matter:
+Profiles select slugs from those catalogs:
 
 ```yaml
----
-name: skill-name
-description: Short trigger-oriented description.
----
+config:
+  profiles:
+    - name: Tenant Evaluation
+      slug: tenant-evaluation
+      description: "Django backend work: the Django handbook plus the Python and data-layer skills."
+      using:
+        mcps: [context7]
+        skills: [mires, mires-django, django, postgres, testing]
+        subagents: [explorer, planner]
+        rules: [no-secrets]
 ```
 
-Every skill should keep these sections:
+`using` also accepts a list of mappings, which the parser merges into one.
 
-- `## When To Use`
-- `## Core Rules`
-- `## Preferred Patterns`
-- `## Anti-Patterns`
-- `## Checklist`
-- `## References Index`
+## Commands
 
-If a skill references files under `references/`, make sure those paths exist and are listed in the skill's references index.
-
-## Compatibility
-
-The `.ai/agents` and `.ai/skills` trees are runtime-agnostic source assets. Runtime-specific checks belong in adapters under `src/compatibility` for supported generated targets such as Codex and OpenCode.
-
-Use `python3 src/main.py --target codex` or `python3 src/main.py --target opencode` to validate runtime compatibility. Use `python3 scripts/verify_agent_first_surface.py` for the broader repository surface check.
-
-To install the canonical Mires agents into Codex, run:
+Install the toolchain once with `uv sync`, then:
 
 ```bash
-python3 src/main.py install --target codex
+uv run mires validate                                    # check state.yml against the files on disk
+uv run mires check --target codex                        # check runtime compatibility
+uv run mires install --target codex                      # install the whole catalog
+uv run mires install --target codex --profile personal   # install only what a profile selects
+uv run mires install --target opencode --dry-run         # preview without writing
 ```
 
-This writes generated agent config layers to `$HOME/.codex/agents/`, registers them in `$HOME/.codex/config.toml` under `[agents.<agent-name>]` tables, and creates private agent bundles under `$HOME/.codex/mires/agents/<agent-name>/`. The canonical source remains `.ai/agents` and `.ai/skills`; files under `$HOME/.codex/agents/` and `$HOME/.codex/mires/` are generated runtime output.
+Validation runs before every check and install, so a broken catalog fails before anything is written.
 
-Mires skill packages are bundled privately per agent. The installer does not write them to the global Codex skills directory, so unrelated Codex sessions do not inherit the full Mires reference set.
-
-Preview the install without writing files:
+Two more checks cover the repository as a whole:
 
 ```bash
-python3 src/main.py install --target codex --dry-run
+uv run python -m mires.scripts.verify_agent_first_surface
+uv run pytest
 ```
 
-Use an isolated Codex home for tests or validation:
+## Install Targets
+
+`--target codex` writes generated agent config layers to `$HOME/.codex/agents/`, registers them in `$HOME/.codex/config.toml` under `[agents.<name>]`, and creates private agent bundles under `$HOME/.codex/mires/agents/<name>/`.
+
+`--target opencode` writes generated Markdown agents to `$HOME/.config/opencode/agents/`, skills to `$HOME/.config/opencode/skills/`, and bundles to `$HOME/.config/opencode/mires/agents/<name>/`.
+
+Everything under those homes is generated output. The canonical source is this repository; do not edit generated files. Use `--codex-home` or `--opencode-home` to install somewhere isolated.
+
+## Public Skills
+
+Three skills are marked `public` and are installable on their own:
 
 ```bash
-python3 src/main.py install --target codex --codex-home /tmp/mires-codex-home
+bunx skills add Macwdo/mires --list
+bunx skills add Macwdo/mires --skill mires -g -a codex
+bunx skills add Macwdo/mires --skill mires-django -g -a codex
+bunx skills add Macwdo/mires --skill mires-react -g -a codex
 ```
 
-To install the canonical Mires agents and skills into OpenCode, run:
+`mires-django` and `mires-react` carry full Markdown handbooks under `references/handbook/`, merged in from the former `django-cookiecutter-standard` and `react-personal-references` repositories. They are first-class content here now: edit the handbook Markdown directly.
 
-```bash
-python3 src/main.py install --target opencode
-```
+## Adding A Catalog Entry
 
-This writes generated Markdown agents to `$HOME/.config/opencode/agents/`, generated OpenCode skills to `$HOME/.config/opencode/skills/`, and private generated agent bundles to `$HOME/.config/opencode/mires/agents/<agent-name>/`. The canonical source remains `.ai/agents` and `.ai/skills`; files under `$HOME/.config/opencode/` are generated runtime output.
-
-Preview the OpenCode install without writing files:
-
-```bash
-python3 src/main.py install --target opencode --dry-run
-```
-
-Use an isolated OpenCode home for tests or validation:
-
-```bash
-python3 src/main.py install --target opencode --opencode-home /tmp/mires-opencode-home
-```
+1. Create the files: `skills/<slug>/SKILL.md`, `subagents/<slug>/AGENT.md`, `rules/<slug>.md`, `mcps/<slug>/mcp.json`, or `hooks/<slug>/hooks.json`.
+2. Declare the entry in `state.yml`, keeping the front matter `name` equal to the slug.
+3. Add the slug to every profile that should use it.
+4. Run `uv run mires validate`.
 
 ## Security
 
-Do not commit secrets, personal tokens, API keys, or private environment values in agent files, skill files, examples, metadata, or references. Use placeholder names such as `OPENAI_API_KEY` when configuration examples are needed.
+Do not commit secrets, personal tokens, API keys, or private environment values into any catalog entry, example, or reference. Use placeholders such as `OPENAI_API_KEY`. See `rules/no-secrets.md`.

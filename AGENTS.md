@@ -1,96 +1,71 @@
 # Repository Guidelines
 
-## Orchestrator-First Routing
+## Runtime Routing
 
-For non-trivial engineering work in this repository, route through `.ai/agents/orchestrator/AGENT.md` first.
+Mires exposes two subagents. Route to them explicitly; the user should not have to name them.
 
-- The user should not need to manually request subagents.
-- The orchestrator decides whether delegation is needed.
-- Simple tasks can be handled directly.
-- Medium and complex tasks should be delegated to specialist agents.
-- Most specialist agents should inspect and report before implementation starts.
-- Only one final implementation agent should modify files after findings are merged.
+- `explorer`: map files, entrypoints, dependencies, and existing patterns. Read-only. Use it when ownership is unclear or the relevant module is unknown.
+- `planner`: turn an ambiguous request into a decision-ready plan. Use it when the task needs scoping before implementation.
+
+Rules that apply to both:
+
+- Inspect existing code patterns before proposing new ones.
 - Prefer project conventions over generic advice.
-- Always inspect existing code patterns before proposing new ones.
+- Separate discovered constraints from assumptions.
+- Only one agent should modify files for a given change.
 
-## Project Structure & Module Organization
+`planner` also serves as the reference shape for a new subagent: front matter, an `agents/openai.yaml`, a `## Skills` section listing the skills it loads, and a declaration in `state.yml`.
 
-This repository stores Mires AI agents and owner-loaded reference skills. The canonical authoring layout lives under `.ai/`:
+## Project Structure
 
-- `.ai/AGENTS.md`: runtime routing guide with orchestrator-first behavior.
-- `.ai/agents/<agent-name>/`: agent entrypoints, delegation rules, and runtime metadata.
-- `.ai/skills/<skill-name>/`: agent-owned reference packages and detailed supporting material.
+`state.yml` is the catalog definition; `skills/`, `subagents/`, `rules/`, `mcps/`, and `hooks/` hold the files it declares. The `mires` CLI lives in `src/mires/`, with the state parser in `src/mires/state/`, runtime adapters in `src/mires/compatibility/`, repository scripts in `src/mires/scripts/`, and tests in `src/mires/tests/`.
 
-Each skill should include a `SKILL.md` with YAML front matter (`name`, `description`) followed by concise Markdown instructions for the owning agent or workflow. Each agent should include an `AGENT.md` with YAML front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml` runtime metadata. Use `references/` for supporting docs that are too detailed for the main skill.
+Skills use `SKILL.md` with YAML front matter (`name`, `description`) and keep detailed material under `references/`. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
 
-Examples:
-
-- `.ai/agents/orchestrator/AGENT.md`: default entrypoint for non-trivial work.
-- `.ai/agents/backend/AGENT.md`: backend worker behavior and reporting rules.
-- `.ai/skills/django/SKILL.md`: Django implementation patterns and references.
+Keep directory names lowercase kebab-case.
 
 ## Build, Test, and Development Commands
 
-There is no application build or automated test suite configured in this repository. Useful local checks are:
+```bash
+uv sync                                                   # install the toolchain
+uv run mires validate                                     # catalog definition against the files on disk
+uv run mires check --target codex                         # runtime compatibility
+uv run python -m mires.scripts.verify_agent_first_surface # repository-wide surface checks
+uv run pytest                                             # the test suite
+```
 
-- `rg --files .ai`: list canonical agent and skill files.
-- `sed -n '1,120p' .ai/agents/<agent>/AGENT.md`: review an agent quickly.
-- `sed -n '1,120p' .ai/skills/<skill>/SKILL.md`: review a skill quickly.
-- `git status --short`: confirm only intended files changed.
-- `python3 scripts/verify_agent_first_surface.py`: verify the public `.ai` agent hierarchy, skill packages, and reference paths.
-- `python3 src/main.py --target codex`: validate Codex compatibility from the canonical `.ai` assets.
-
-When adding executable scripts or generated assets, document their commands in the related skill and update this guide if they become repository-wide.
+Run all four before committing a change that touches the catalog or the CLI.
 
 ## Coding Style & Naming Conventions
 
-Write documentation in clear, direct Markdown. Keep `AGENT.md` and `SKILL.md` files action-oriented: explain when to use the agent or skill, what workflow to follow, and which references to load. Prefer lowercase kebab-case for directory names.
+Write documentation in clear, direct Markdown. Keep `AGENT.md` and `SKILL.md` action-oriented: when to use it, what workflow to follow, which references to load. Use two-space YAML indentation and keep examples small and specific.
 
-Use YAML front matter consistently:
-
-```yaml
----
-name: skill-name
-description: Short trigger-oriented description.
----
-```
-
-Use two-space indentation in YAML. Keep examples small and specific to the workflow.
+Python is formatted and linted with Ruff at a 120-character line length (`uv run ruff check src`). Prefer explicit typing and small functions.
 
 ## AI Implementation Gate
 
-Before backend implementation, inspect the target repository conventions and summarize the evidence before editing code. This gate applies to backend work that touches configuration, database access, dependency injection, services, repositories, error handling, testing, app startup, Celery, Django, FastAPI, or generic Python backend modules.
+Before backend implementation, inspect the target repository's conventions and summarize the evidence before editing code. This applies to work touching configuration, database access, dependency injection, services, repositories, error handling, testing, app startup, Celery, Django, FastAPI, or generic Python backend modules.
 
-The convention report must cover:
+The convention report must cover the configuration pattern, database and session pattern, dependency injection style, service and repository boundaries, error handling style, testing style, and naming and module organization.
 
-- Configuration pattern: Pydantic Settings, Dynaconf, Django settings, environment variables, dataclasses, or another existing pattern.
-- Database/session pattern: Django ORM, SQLAlchemy sync or async, session factory, engine lifecycle, FastAPI lifespan, migrations, or Django initialization.
-- Dependency injection style: framework dependencies, explicit function parameters, service constructors, global clients, or existing provider modules.
-- Service/repository boundaries: where business logic, persistence queries, and external I/O belong.
-- Error handling style: exceptions, HTTP errors, result objects, logging, and failure translation.
-- Testing style: test framework, fixture shape, naming, mocks/fakes, database setup, and validation commands.
-- Naming and module organization: package layout, file naming, import style, and helper placement.
+Existing project conventions override generic best practices and reusable skill examples. Do not introduce duplicate abstractions when the target repository already has a pattern. If a convention is unclear, report the uncertainty and choose the smallest reversible change instead of inventing architecture.
 
-Existing project conventions override generic best practices, source-repo examples, and reusable skill examples. Do not introduce duplicate configuration, database, session, dependency-injection, service, repository, or testing abstractions when the target repository already has a pattern. If the convention is unclear, report the uncertainty and choose the smallest reversible change instead of silently inventing architecture.
+## Changing The Catalog
 
-## Mires Agent-First Architecture
+Adding, renaming, or removing a skill, subagent, rule, MCP server, or hook is a two-part change: the files and the `state.yml` entry. The validator rejects either half on its own, so keep them in the same commit and update every profile that should carry the entry.
 
-Active Mires runtime discovery is agent-first and `.ai`-only. Public entrypoints are documented in `.ai/AGENTS.md` and `.ai/agents/**/AGENT.md`. Detailed implementation guidance lives under `references/` folders in `.ai/skills` and is loaded by the owning agent or workflow.
-
-When adding a public agent, update `.ai/AGENTS.md`, `.ai/agents`, and `scripts/verify_agent_first_surface.py` in the same change. Keep agents behavior-focused and keep patterns, examples, checklists, and anti-patterns in skills. Do not add compatibility skill packages or public granular skill redirects when a reference can be owned by an existing agent or workflow.
-
-Compatibility tooling lives under `src/compatibility` and must treat `.ai/agents` and `.ai/skills` as runtime-agnostic source assets. Runtime-specific behavior belongs in adapters such as the Codex adapter, and maintainers should not edit a second runtime-specific authoring tree.
+Catalog membership is not hardcoded anywhere in Python. If a check needs to know what exists, it should read `state.yml` rather than grow its own list.
 
 ## Testing Guidelines
 
-For documentation-only changes, validate by reading the rendered Markdown and checking links to relative files. If an agent or skill references `references/`, `agents/`, `scripts/`, or `assets/`, verify those paths exist. For YAML files, use a parser or editor validation before committing.
+Tests live in `src/mires/tests/` and run under pytest. For documentation-only changes, validate by reading the rendered Markdown and confirming that referenced paths exist; `verify_agent_first_surface` checks inline backticked catalog paths automatically.
 
 ## Commit & Pull Request Guidelines
 
-This repository has no existing commit history, so no local convention is established yet. Use short imperative commit messages, for example `add django endpoint skill` or `update python testing reference`.
+Use short imperative commit subjects, for example `add django endpoint skill` or `update python testing reference`. See `rules/commit-style.md`.
 
-Pull requests should summarize changed skills, explain why the change is needed, and list manual validation performed. Include screenshots only for changes that affect rendered documentation or visual assets.
+Pull requests should summarize which catalog entries changed, explain why, and list the manual validation performed.
 
-## Security & Configuration Tips
+## Security & Configuration
 
-Do not commit secrets, personal tokens, API keys, or private environment values in `SKILL.md`, `agents/*.yaml`, examples, or references. Use placeholders like `OPENAI_API_KEY` when configuration is necessary.
+Do not commit secrets, personal tokens, API keys, or private environment values in any tracked file. Use placeholders such as `OPENAI_API_KEY`. See `rules/no-secrets.md`.

@@ -1,0 +1,168 @@
+version: 1
+
+config:
+  profiles:
+    - name: Personal
+      slug: personal
+      description: "Everything Mires owns: the full skill catalog, both subagents, and every rule."
+      using:
+        mcps:
+          - context7
+        skills:
+          - mires
+          - mires-django
+          - mires-react
+          - project-conventions
+          - openspec
+          - backend
+          - python
+          - django
+          - fastapi
+          - sqlalchemy
+          - postgres
+          - celery
+          - langgraph
+          - frontend
+          - react
+          - next
+          - typescript
+          - testing
+          - review
+        subagents:
+          - explorer
+          - planner
+        rules:
+          - no-secrets
+          - commit-style
+        hooks:
+          - validate-state
+
+    - name: Tenant Evaluation
+      slug: tenant-evaluation
+      description: "Django backend work: the Django handbook plus the Python and data-layer skills."
+      using:
+        mcps:
+          - context7
+        skills:
+          - mires
+          - mires-django
+          - project-conventions
+          - python
+          - django
+          - postgres
+          - celery
+          - testing
+          - review
+        subagents:
+          - explorer
+          - planner
+        rules:
+          - no-secrets
+
+mcps:
+  - name: Context7
+    slug: context7
+    description: "Current library, framework, and SDK documentation instead of stale training data."
+
+skills:
+  - name: Mires
+    slug: mires
+    visibility: public
+    description: "Macwdo's personal engineering preferences, repository-first decision making, and delegation model."
+
+  - name: Mires Django
+    slug: mires-django
+    visibility: public
+    description: "Opinionated Django and DRF standards from an executable Markdown handbook."
+
+  - name: Mires React
+    slug: mires-react
+    visibility: public
+    description: "Opinionated React and Next.js standards from an executable Markdown handbook."
+
+  - name: Project Conventions
+    slug: project-conventions
+    description: "Repository convention discovery before backend or framework-specific implementation."
+
+  - name: OpenSpec
+    slug: openspec
+    description: "Planning and change management for proposing, implementing, and archiving changes."
+
+  - name: Backend
+    slug: backend
+    description: "Backend architecture and service-layer rules for Python applications."
+
+  - name: Python
+    slug: python
+    description: "Generic Python module, typing, boundary, error, and test guidance."
+
+  - name: Django
+    slug: django
+    description: "Django and DRF patterns for models, services, selectors, serializers, endpoints, and tests."
+
+  - name: FastAPI
+    slug: fastapi
+    description: "FastAPI app setup, routes, dependencies, schemas, database access, and worker integration."
+
+  - name: SQLAlchemy
+    slug: sqlalchemy
+    description: "SQLAlchemy session, model, and query boundary guidance."
+
+  - name: Postgres
+    slug: postgres
+    description: "Postgres and migration guidance for repositories that already use Postgres."
+
+  - name: Celery
+    slug: celery
+    description: "Celery task, worker, queue, and worker-testing guidance."
+
+  - name: LangGraph
+    slug: langgraph
+    description: "LangGraph typed state, service-backed nodes, graph assembly, and LLM integration."
+
+  - name: Frontend
+    slug: frontend
+    description: "Cross-cutting frontend rules for UI ownership and API integration."
+
+  - name: React
+    slug: react
+    description: "React state ownership, forms, hooks, server state, and anti-pattern checks."
+
+  - name: Next.js
+    slug: next
+    description: "Next.js server-first routing, App Router boundaries, and project setup."
+
+  - name: TypeScript
+    slug: typescript
+    description: "TypeScript guidance for frontend contracts, API typing, and type ownership."
+
+  - name: Testing
+    slug: testing
+    description: "Classifying coverage, reusing fixtures, and adding regression tests for changed behavior."
+
+  - name: Review
+    slug: review
+    description: "Review rules for correctness, risk, performance, security, maintainability, and missing tests."
+
+subagents:
+  - name: Explorer
+    slug: explorer
+    description: "Inspect a repository, map relevant surfaces, and report existing patterns without modifying files."
+
+  - name: Planner
+    slug: planner
+    description: "Clarify ambiguous requests, break work into steps, and produce decision-ready implementation plans."
+
+rules:
+  - name: No Secrets
+    slug: no-secrets
+    description: "Never commit secrets, tokens, or private environment values into tracked assets."
+
+  - name: Commit Style
+    slug: commit-style
+    description: "Short imperative commit subjects scoped to a single intent."
+
+hooks:
+  - name: Validate State
+    slug: validate-state
+    description: "Re-run catalog validation after an edit touches state.yml or a catalog directory."

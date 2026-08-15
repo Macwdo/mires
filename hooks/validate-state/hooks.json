@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "hooks/validate-state/validate-state.sh",
+        "timeout": 30
+      }
+    ]
+  }
+}

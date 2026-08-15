@@ -1,0 +1,36 @@
+[project]
+name = "mires"
+version = "0.1.0"
+description = "Macwdo's personal engineering agent: a state-driven catalog of skills, subagents, rules, MCP servers, and hooks."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.9",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+mires = "mires.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mires"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/mires/tests"]
+
+[tool.ruff]
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
