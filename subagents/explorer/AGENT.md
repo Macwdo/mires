@@ -41,4 +41,4 @@ Exploration Inventory
 
 ## Skills
 
-- `skills/project-conventions`: discover the repository's established conventions before reporting patterns.
+- `skills/mires`: discover the repository's established conventions before reporting patterns.

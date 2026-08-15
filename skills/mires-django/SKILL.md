@@ -17,6 +17,8 @@ Use this optional Mires companion after inspecting the target repository. Existi
 
 ## Route By Boundary
 
+Start from `references/django/rules.md` for the condensed rules, anti-patterns, and checklist, then use `references/django/explorer.md` to pick the focused reference for models, services, selectors, serializers, endpoints, routing, migrations, or tests. Go to the handbook below when you need the full design rationale or a canonical artifact.
+
 - API contracts, authentication, errors, throttling, filtering, and pagination: `references/handbook/docs/api-design.md`
 - Security, tenant isolation, uploads, credentials, and production validation: `references/handbook/docs/security.md`
 - Test strategy and acceptance matrix: `references/handbook/docs/testing.md`
@@ -38,4 +40,6 @@ Use this optional Mires companion after inspecting the target repository. Existi
 
 ## Source
 
-Read `references/source.md` for provenance and synchronization instructions. This is a standards handbook with reconstructable examples, not an active cookiecutter or project generator.
+Read `references/source.md` for provenance. This is a standards handbook with reconstructable examples, not an active cookiecutter or project generator.
+
+For non-Django Python work such as FastAPI, Celery, SQLAlchemy, or LangGraph, use `$mires-python`.

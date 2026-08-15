@@ -38,5 +38,4 @@ Implementation Plan
 
 ## Skills
 
-- `skills/project-conventions`: ground the plan in the repository's established conventions.
-- `skills/openspec`: use when the change warrants a tracked spec proposal.
+- `skills/mires`: ground the plan in the repository's established conventions, and follow the OpenSpec workflow when the change warrants a tracked spec proposal.

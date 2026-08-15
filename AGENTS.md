@@ -22,6 +22,8 @@ Rules that apply to both:
 
 Skills use `SKILL.md` with YAML front matter (`name`, `description`) and keep detailed material under `references/`. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
 
+Skills are aggregated by domain: `mires`, `mires-python`, `mires-django`, `mires-react`, `mires-typescript`. Per-library and per-practice guidance is a topic inside a domain, at `references/<topic>/rules.md` with its focused documents beside it, routed from the domain's `SKILL.md`. Add a topic rather than a skill unless the subject fits none of the five domains.
+
 Keep directory names lowercase kebab-case.
 
 ## Build, Test, and Development Commands
@@ -62,7 +64,7 @@ Tests live in `src/mires/tests/` and run under pytest. For documentation-only ch
 
 ## Commit & Pull Request Guidelines
 
-Use short imperative commit subjects, for example `add django endpoint skill` or `update python testing reference`. See `rules/commit-style.md`.
+Use short imperative commit subjects, for example `add celery retry rules` or `update python testing reference`. See `rules/commit-style.md`.
 
 Pull requests should summarize which catalog entries changed, explain why, and list the manual validation performed.
 

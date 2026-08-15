@@ -9,7 +9,7 @@ Mires is Macwdo's personal engineering agent, versioned as one repository. It ow
 | Path | Contents |
 | --- | --- |
 | `state.yml` | The catalog definition and the profiles that select from it. |
-| `skills/<slug>/SKILL.md` | Skill guidance, with detailed material under `references/`. |
+| `skills/<slug>/SKILL.md` | Domain skill routing, with detailed material under `references/`. |
 | `subagents/<slug>/AGENT.md` | Subagent behavior, with runtime metadata in `agents/openai.yaml`. |
 | `rules/<slug>.md` | Standing rules that apply across work. |
 | `mcps/<slug>/mcp.json` | MCP server configuration. |
@@ -30,10 +30,10 @@ config:
   profiles:
     - name: Tenant Evaluation
       slug: tenant-evaluation
-      description: "Django backend work: the Django handbook plus the Python and data-layer skills."
+      description: "Django backend work: the core skill plus the Django and Python domains."
       using:
         mcps: [context7]
-        skills: [mires, mires-django, django, postgres, testing]
+        skills: [mires, mires-python, mires-django]
         subagents: [explorer, planner]
         rules: [no-secrets]
 ```
@@ -69,15 +69,29 @@ uv run pytest
 
 Everything under those homes is generated output. The canonical source is this repository; do not edit generated files. Use `--codex-home` or `--opencode-home` to install somewhere isolated.
 
-## Public Skills
+## Skills
 
-Three skills are marked `public` and are installable on their own:
+Skills are aggregated by domain, not by library. There is no per-library skill: a topic such as FastAPI, Celery, or Next.js is a rule document inside the domain that owns it.
+
+| Skill | Domain | Topics |
+| --- | --- | --- |
+| `mires` | Personal and cross-cutting | Preferences, operating model, project conventions, testing, review, OpenSpec |
+| `mires-python` | Python outside Django | Python, backend services, FastAPI, SQLAlchemy, Postgres, Celery, LangGraph |
+| `mires-django` | Django and DRF | Django handbook, Django implementation rules |
+| `mires-react` | React and Next.js | React and Next.js handbook, React, Next.js, frontend rules |
+| `mires-typescript` | TypeScript | Type ownership, shared contracts, API integration |
+
+Each `SKILL.md` routes by boundary. A topic lives at `references/<topic>/rules.md` with its focused reference documents beside it, so an agent loads only the rules for the boundary it is touching.
+
+All five are marked `public` and are installable on their own:
 
 ```bash
 bunx skills add Macwdo/mires --list
 bunx skills add Macwdo/mires --skill mires -g -a codex
+bunx skills add Macwdo/mires --skill mires-python -g -a codex
 bunx skills add Macwdo/mires --skill mires-django -g -a codex
 bunx skills add Macwdo/mires --skill mires-react -g -a codex
+bunx skills add Macwdo/mires --skill mires-typescript -g -a codex
 ```
 
 `mires-django` and `mires-react` carry full Markdown handbooks under `references/handbook/`, merged in from the former `django-cookiecutter-standard` and `react-personal-references` repositories. They are first-class content here now: edit the handbook Markdown directly.
@@ -88,6 +102,10 @@ bunx skills add Macwdo/mires --skill mires-react -g -a codex
 2. Declare the entry in `state.yml`, keeping the front matter `name` equal to the slug.
 3. Add the slug to every profile that should use it.
 4. Run `uv run mires validate`.
+
+## Adding A Topic
+
+New guidance for a library or a practice is a topic, not a skill. Create `skills/<domain>/references/<topic>/rules.md` with the six standard sections (`## When To Use`, `## Core Rules`, `## Preferred Patterns`, `## Anti-Patterns`, `## Checklist`, `## References Index`), put its detailed documents beside it, and route to it from the domain's `SKILL.md`. Only add a new domain skill when the topic fits none of the existing five.
 
 ## Security
 

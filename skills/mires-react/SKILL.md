@@ -17,6 +17,12 @@ Use this optional Mires companion after inspecting the target repository. Existi
 
 ## Route By Surface
 
+Start from the condensed rules, then go to the handbook when you need the full design rationale or a canonical artifact.
+
+- Cross-cutting UI ownership and state boundaries: `references/frontend/rules.md`
+- React component, state, and form rules: `references/react/rules.md`, routed by `references/react/explorer.md`
+- Next.js App Router, bootstrap, and library setup rules: `references/next/rules.md`, routed by `references/next/explorer.md`
+
 - Component boundaries and composition: `references/handbook/docs/component-design.md`
 - API input and output contracts: `references/handbook/docs/api-contracts.md`
 - Forms and mutation outcomes: `references/handbook/docs/forms.md`
@@ -42,4 +48,6 @@ Use this optional Mires companion after inspecting the target repository. Existi
 
 ## Source
 
-Read `references/source.md` for provenance and synchronization instructions. This is a standards handbook with reconstructable examples, not a product template or generator.
+Read `references/source.md` for provenance. This is a standards handbook with reconstructable examples, not a product template or generator.
+
+For type ownership and API contract decisions, use `$mires-typescript`.

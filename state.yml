@@ -10,24 +10,10 @@ config:
           - context7
         skills:
           - mires
+          - mires-python
           - mires-django
           - mires-react
-          - project-conventions
-          - openspec
-          - backend
-          - python
-          - django
-          - fastapi
-          - sqlalchemy
-          - postgres
-          - celery
-          - langgraph
-          - frontend
-          - react
-          - next
-          - typescript
-          - testing
-          - review
+          - mires-typescript
         subagents:
           - explorer
           - planner
@@ -39,20 +25,14 @@ config:
 
     - name: Tenant Evaluation
       slug: tenant-evaluation
-      description: "Django backend work: the Django handbook plus the Python and data-layer skills."
+      description: "Django backend work: the core skill plus the Django and Python domains."
       using:
         mcps:
           - context7
         skills:
           - mires
+          - mires-python
           - mires-django
-          - project-conventions
-          - python
-          - django
-          - postgres
-          - celery
-          - testing
-          - review
         subagents:
           - explorer
           - planner
@@ -64,85 +44,33 @@ mcps:
     slug: context7
     description: "Current library, framework, and SDK documentation instead of stale training data."
 
+# Skills are aggregated by domain. Per-topic guidance lives inside a skill as
+# references/<topic>/rules.md plus its focused reference documents.
 skills:
   - name: Mires
     slug: mires
     visibility: public
-    description: "Macwdo's personal engineering preferences, repository-first decision making, and delegation model."
+    description: "Macwdo's personal engineering preferences, delegation model, and the language-agnostic conventions, testing, review, and OpenSpec rules."
+
+  - name: Mires Python
+    slug: mires-python
+    visibility: public
+    description: "Python backend standards covering modules, service layers, FastAPI, SQLAlchemy, Postgres, Celery, and LangGraph."
 
   - name: Mires Django
     slug: mires-django
     visibility: public
-    description: "Opinionated Django and DRF standards from an executable Markdown handbook."
+    description: "Opinionated Django and DRF standards from an executable Markdown handbook, plus the condensed Django implementation rules."
 
   - name: Mires React
     slug: mires-react
     visibility: public
-    description: "Opinionated React and Next.js standards from an executable Markdown handbook."
+    description: "Opinionated React and Next.js standards from an executable Markdown handbook, plus the condensed React, Next.js, and frontend rules."
 
-  - name: Project Conventions
-    slug: project-conventions
-    description: "Repository convention discovery before backend or framework-specific implementation."
-
-  - name: OpenSpec
-    slug: openspec
-    description: "Planning and change management for proposing, implementing, and archiving changes."
-
-  - name: Backend
-    slug: backend
-    description: "Backend architecture and service-layer rules for Python applications."
-
-  - name: Python
-    slug: python
-    description: "Generic Python module, typing, boundary, error, and test guidance."
-
-  - name: Django
-    slug: django
-    description: "Django and DRF patterns for models, services, selectors, serializers, endpoints, and tests."
-
-  - name: FastAPI
-    slug: fastapi
-    description: "FastAPI app setup, routes, dependencies, schemas, database access, and worker integration."
-
-  - name: SQLAlchemy
-    slug: sqlalchemy
-    description: "SQLAlchemy session, model, and query boundary guidance."
-
-  - name: Postgres
-    slug: postgres
-    description: "Postgres and migration guidance for repositories that already use Postgres."
-
-  - name: Celery
-    slug: celery
-    description: "Celery task, worker, queue, and worker-testing guidance."
-
-  - name: LangGraph
-    slug: langgraph
-    description: "LangGraph typed state, service-backed nodes, graph assembly, and LLM integration."
-
-  - name: Frontend
-    slug: frontend
-    description: "Cross-cutting frontend rules for UI ownership and API integration."
-
-  - name: React
-    slug: react
-    description: "React state ownership, forms, hooks, server state, and anti-pattern checks."
-
-  - name: Next.js
-    slug: next
-    description: "Next.js server-first routing, App Router boundaries, and project setup."
-
-  - name: TypeScript
-    slug: typescript
-    description: "TypeScript guidance for frontend contracts, API typing, and type ownership."
-
-  - name: Testing
-    slug: testing
-    description: "Classifying coverage, reusing fixtures, and adding regression tests for changed behavior."
-
-  - name: Review
-    slug: review
-    description: "Review rules for correctness, risk, performance, security, maintainability, and missing tests."
+  - name: Mires TypeScript
+    slug: mires-typescript
+    visibility: public
+    description: "TypeScript type ownership, shared contracts, and API response typing across frontend and Node codebases."
 
 subagents:
   - name: Explorer

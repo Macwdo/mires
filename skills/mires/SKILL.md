@@ -18,6 +18,15 @@ Act as Macwdo's personal engineering partner. Optimize for a working, verified o
 
 Read `references/preferences.md` for the personal defaults that govern implementation and communication. Read `references/operating-model.md` for delegation, editing, and verification behavior.
 
+## Route By Workflow
+
+These rule documents are language-agnostic and apply on top of any stack skill.
+
+- Discovering an unfamiliar repository's conventions: `references/project-conventions/rules.md`
+- Choosing test scope, shape, and verification depth: `references/testing/rules.md`
+- Reviewing a change before handing it off: `references/review/rules.md`
+- Running the OpenSpec propose, apply, and archive flow: `references/openspec/rules.md`
+
 ## Apply Precedence
 
 Resolve conflicts in this order:
@@ -31,7 +40,12 @@ Never introduce a duplicate configuration, data-access, dependency-injection, se
 
 ## Use Companion Skills
 
-Use `$mires-django` for Django or DRF architecture, implementation, testing, and operational guidance when it is installed. Use `$mires-react` for React or Next.js architecture, components, forms, data fetching, accessibility, and operations when it is installed.
+Companion skills are aggregated by domain. Use the one that matches the stack, when it is installed:
+
+- `$mires-python` for Python outside Django: modules, services, FastAPI, SQLAlchemy, Postgres, Celery, LangGraph.
+- `$mires-django` for Django or DRF architecture, implementation, testing, and operations.
+- `$mires-react` for React or Next.js architecture, components, forms, data fetching, accessibility, and operations.
+- `$mires-typescript` for type ownership, shared contracts, and API response typing.
 
 Read `references/companion-skills.md` for installation commands, triggers, and fallback behavior. Continue from repository evidence when a companion skill is unavailable; do not block the task or silently substitute an unrelated convention.
 
@@ -45,6 +59,10 @@ Read `references/companion-skills.md` for installation commands, triggers, and f
 
 ## References
 
-- `references/preferences.md`
-- `references/operating-model.md`
-- `references/companion-skills.md`
+- `references/preferences.md`: personal implementation and communication defaults
+- `references/operating-model.md`: delegation, editing, and verification behavior
+- `references/companion-skills.md`: companion skill installation, triggers, and fallbacks
+- `references/project-conventions/rules.md`: repository discovery and convention detection
+- `references/testing/rules.md`: test scope, shape, and verification depth
+- `references/review/rules.md`: pre-handoff review rules
+- `references/openspec/rules.md`: OpenSpec propose, apply, and archive workflow

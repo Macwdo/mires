@@ -1,6 +1,6 @@
 # Commit Style
 
-Write short imperative commit subjects describing the change, for example `add django endpoint skill` or `update python testing reference`.
+Write short imperative commit subjects describing the change, for example `add celery retry rules` or `update python testing reference`.
 
 ## Rules
 

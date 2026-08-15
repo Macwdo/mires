@@ -123,10 +123,8 @@ class CodexInstallCommandTests(unittest.TestCase):
             self.assertTrue((codex_home / "agents" / "explorer.toml").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "AGENT.md").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "agents" / "openai.yaml").exists())
-            self.assertTrue(
-                (codex_home / "mires" / "agents" / "explorer" / "skills" / "project-conventions").exists()
-            )
-            self.assertFalse((codex_home / "skills" / "project-conventions").exists())
+            self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "skills" / "mires").exists())
+            self.assertFalse((codex_home / "skills" / "mires").exists())
             bundled_text = "\n".join(
                 path.read_text()
                 for path in (codex_home / "mires" / "agents").rglob("*")

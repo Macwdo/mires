@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires Python"
+  short_description: "Python backend standards: modules, FastAPI, SQLAlchemy, Postgres, Celery, LangGraph"
+  default_prompt: "Use $mires-python to apply my Python backend standards after inspecting the target repository's conventions."

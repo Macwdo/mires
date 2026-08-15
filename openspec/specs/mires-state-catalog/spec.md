@@ -45,6 +45,19 @@ The system SHALL validate a skill according to its declared `visibility`.
 - **WHEN** a skill declares `visibility: public`
 - **THEN** it must ship `agents/openai.yaml` invoking `$<slug>`
 
+### Requirement: Skills are aggregated by domain
+The system SHALL expose one skill per domain and SHALL carry per-library or per-practice guidance as a topic inside the owning domain rather than as its own catalog entry.
+
+#### Scenario: Guidance for a library is added
+- **WHEN** a maintainer adds guidance for a library or practice that belongs to an existing domain
+- **THEN** it is written as `skills/<domain>/references/<topic>/rules.md` with its focused documents beside it
+- **AND** the domain's `SKILL.md` routes to that rule document
+- **AND** no new entry is added to the `skills` section of `state.yml`
+
+#### Scenario: A topic is not routed
+- **WHEN** a topic directory under a skill's `references/` has no `rules.md`, or the skill's `SKILL.md` does not reference it
+- **THEN** the test suite reports the unrouted topic and fails
+
 ### Requirement: Profiles select a subset of the catalog
 The system SHALL allow profiles to name the entries they use, and SHALL install only that subset when a profile is selected.
 

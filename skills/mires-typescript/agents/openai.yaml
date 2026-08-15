@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires TypeScript"
+  short_description: "TypeScript type ownership, shared contracts, and API integration standards"
+  default_prompt: "Use $mires-typescript to decide where types live and how this API contract should be typed."
