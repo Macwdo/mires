@@ -84,7 +84,7 @@ Every runtime receives the whole catalog, translated into that runtime's own con
 | --- | --- | --- | --- | --- |
 | Subagents | `agents/<slug>.toml` + `config.toml` | `agents/<slug>.md` | `agents/<slug>.md` | `agents/<slug>.md` |
 | Skills | `skills/<slug>/` | `skills/<slug>/` | `skills/<slug>/` | `skills/<slug>/` |
-| Rules | block in `AGENTS.md` | `rules/<slug>.mdc` | block in `CLAUDE.md` | block in `AGENTS.md` |
+| Rules | block in `AGENTS.md` | `plugins/local/mires/rules/<slug>.mdc` | block in `CLAUDE.md` | block in `AGENTS.md` |
 | MCP servers | `config.toml` `[mcp_servers]` | `mcp.json` | `~/.claude.json` | `opencode.json` `mcp` |
 | Hooks | not supported | `hooks.json` | `settings.json` | not supported |
 | Specs | `mires/specs/` | `mires/specs/` | `mires/specs/` | `mires/specs/` |
@@ -92,6 +92,8 @@ Every runtime receives the whole catalog, translated into that runtime's own con
 Homes default to `~/.codex`, `~/.cursor`, `~/.claude`, and `~/.config/opencode`. Override any of them with `--codex-home`, `--cursor-home`, `--claude-home`, or `--opencode-home`.
 
 Codex and OpenCode have no user-level hook runtime, so hooks are skipped there and the install says so.
+
+Cursor is the one runtime with no global rules directory: its User Rules live in the settings store, and only project rules load from `.mdc` files. So Mires ships its rules as a local Cursor plugin. Cursor reloads `mcp.json` and `hooks.json` on save, but picks up a plugin on window reload, so run **Developer: Reload Window** after an install that changed rules.
 
 ### Hook Events
 

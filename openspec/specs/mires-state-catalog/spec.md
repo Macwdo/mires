@@ -86,6 +86,10 @@ The system SHALL install the whole catalog into every supported runtime from a s
 - **WHEN** a target has no runtime for an asset kind, such as hooks in Codex
 - **THEN** that kind is skipped and the command reports which kinds were skipped for that target
 
+#### Scenario: A runtime has no direct location for an asset kind
+- **WHEN** a target supports an asset kind only through an indirection, as Cursor does for rules
+- **THEN** the adapter uses that runtime's documented mechanism rather than writing to a path the runtime never reads
+
 #### Scenario: A single runtime is targeted
 - **WHEN** a maintainer passes `--target` with one runtime slug
 - **THEN** only that runtime is written to

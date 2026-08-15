@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mires.compatibility.cursor import PLUGIN_DIR
 from mires.frontmatter import parse_frontmatter
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -36,19 +37,23 @@ class CursorInstallTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((home / "agents" / "explorer.md").exists())
             self.assertTrue((home / "skills" / "mires-python" / "SKILL.md").exists())
-            self.assertTrue((home / "rules" / "no-secrets.mdc").exists())
+            self.assertTrue((home / PLUGIN_DIR / "rules" / "no-secrets.mdc").exists())
+            self.assertTrue((home / PLUGIN_DIR / ".cursor-plugin" / "plugin.json").exists())
             self.assertTrue((home / "mcp.json").exists())
             self.assertTrue((home / "hooks.json").exists())
             self.assertTrue((home / "mires" / "specs").is_dir())
 
-    def test_rules_are_always_applied_mdc_files(self) -> None:
+    def test_rules_ship_as_a_local_plugin_because_cursor_has_no_global_rules_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             home = Path(temp_dir) / ".cursor"
             install(home)
-            frontmatter = parse_frontmatter((home / "rules" / "commit-style.mdc").read_text())
+            manifest = json.loads((home / PLUGIN_DIR / ".cursor-plugin" / "plugin.json").read_text())
+            frontmatter = parse_frontmatter((home / PLUGIN_DIR / "rules" / "commit-style.mdc").read_text())
 
+            self.assertEqual(manifest["name"], "mires")
             self.assertTrue(frontmatter["alwaysApply"])
             self.assertTrue(frontmatter["description"].strip())
+            self.assertFalse((home / "rules").exists(), "Cursor never loads a global ~/.cursor/rules directory")
 
     def test_hook_commands_point_at_the_installed_copy_not_the_repository(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -84,12 +89,13 @@ class CursorInstallTests(unittest.TestCase):
             home = Path(temp_dir) / ".cursor"
             install(home)
             self.assertTrue((home / "skills" / "mires-react").exists())
-            self.assertTrue((home / "rules" / "commit-style.mdc").exists())
+            self.assertTrue((home / PLUGIN_DIR / "rules" / "commit-style.mdc").exists())
 
             install(home, "--profile", "tenant-evaluation")
 
             self.assertFalse((home / "skills" / "mires-react").exists())
-            self.assertFalse((home / "rules" / "commit-style.mdc").exists())
+            self.assertFalse((home / PLUGIN_DIR / "rules" / "commit-style.mdc").exists())
+            self.assertTrue((home / PLUGIN_DIR / "rules" / "no-secrets.mdc").exists())
             self.assertTrue((home / "skills" / "mires-python").exists())
             self.assertNotIn("hooks", json.loads((home / "hooks.json").read_text()))
 

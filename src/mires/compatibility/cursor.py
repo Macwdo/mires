@@ -1,13 +1,19 @@
 """Install the Mires catalog into Cursor.
 
-Cursor keeps user configuration under `~/.cursor`: rules as `.mdc` files, skills
-and agents as directories, MCP servers in `mcp.json`, and hooks in `hooks.json`.
-Its hook event names are the ones Mires uses canonically, so hooks map straight
-through.
+Cursor keeps most user configuration under `~/.cursor`: skills and agents as
+directories, MCP servers in `mcp.json`, and hooks in `hooks.json`. Its hook event
+names are the ones Mires uses canonically, so hooks map straight through.
+
+Rules are the exception. Cursor has no global rules directory: User Rules live in
+its settings store, and only project rules are loaded from `.mdc` files. The one
+documented way to ship rules globally from the filesystem is a local plugin, so
+that is where they go. Unlike `mcp.json` and `hooks.json`, which Cursor watches
+and reloads on save, a plugin is picked up on window reload.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -41,12 +47,16 @@ SUPPORTED_TARGET = "cursor"
 DISPLAY_NAME = "Cursor"
 AGENTS_DIR = "agents"
 SKILLS_DIR = "skills"
-RULES_DIR = "rules"
 MIRES_DIR = "mires"
 SPECS_DIR = "specs"
 MCP_FILE = "mcp.json"
 HOOKS_FILE = "hooks.json"
 HOOKS_SCHEMA_VERSION = 1
+
+PLUGIN_NAME = "mires"
+PLUGIN_DIR = Path("plugins") / "local" / PLUGIN_NAME
+PLUGIN_MANIFEST = Path(".cursor-plugin") / "plugin.json"
+PLUGIN_RULES_DIR = "rules"
 
 # Cursor's own event vocabulary matches the canonical Mires names one to one.
 HOOK_EVENTS = ("beforeSubmitPrompt", "beforeShellExecution", "beforeReadFile", "afterFileEdit", "stop")
@@ -113,11 +123,7 @@ def install_cursor_assets(inventory: AssetInventory, home: Path, dry_run: bool =
         copy_generated_tree(skill.path.parent, path)
         manifest.track_path(path)
 
-    for rule in inventory.rules:
-        path = rule_path(home, rule)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_rule(rule))
-        manifest.track_path(path)
+    write_rules_plugin(home, inventory.rules, manifest)
 
     if inventory.specs:
         specs_path = home / MIRES_DIR / SPECS_DIR
@@ -141,7 +147,34 @@ def skill_path(home: Path, skill: SkillAsset) -> Path:
 
 
 def rule_path(home: Path, rule: RuleAsset) -> Path:
-    return home / RULES_DIR / f"{rule.name}.mdc"
+    return home / PLUGIN_DIR / PLUGIN_RULES_DIR / f"{rule.name}.mdc"
+
+
+def write_rules_plugin(home: Path, rules: tuple[RuleAsset, ...], manifest: InstallManifest) -> None:
+    """Rules reach Cursor globally only through a local plugin, so Mires ships one."""
+    plugin_root = home / PLUGIN_DIR
+    rules_root = plugin_root / PLUGIN_RULES_DIR
+    if rules_root.exists():
+        shutil.rmtree(rules_root)
+    if not rules:
+        return
+
+    manifest_path = plugin_root / PLUGIN_MANIFEST
+    write_json_object(
+        manifest_path,
+        {
+            "name": PLUGIN_NAME,
+            "displayName": "Mires",
+            "description": "Standing rules from the Mires catalog.",
+            "version": "1.0.0",
+        },
+    )
+    manifest.track_path(plugin_root)
+
+    for rule in rules:
+        path = rule_path(home, rule)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_rule(rule))
 
 
 def render_agent(agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> str:
