@@ -5,16 +5,42 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from mires.compatibility.models import AgentAsset, AssetInventory, SkillAsset, ValidationMessage
+from mires.compatibility.models import (
+    AgentAsset,
+    AssetInventory,
+    InstallReport,
+    McpAsset,
+    SkillAsset,
+    ValidationMessage,
+)
+from mires.compatibility.rendering import referenced_skills, rules_document
+from mires.compatibility.writing import (
+    InstallManifest,
+    copy_generated_tree,
+    read_json_object,
+    write_json_object,
+    write_managed_markdown,
+)
 
 SUPPORTED_TARGET = "opencode"
+DISPLAY_NAME = "OpenCode"
 PRIMARY_AGENT = "explorer"
 AGENTS_DIR = "agents"
 SKILLS_DIR = "skills"
 MIRES_DIR = "mires"
+SPECS_DIR = "specs"
 SKILL_FILE = "SKILL.md"
+CONFIG_FILE = "opencode.json"
+INSTRUCTIONS_FILE = "AGENTS.md"
 SOURCE_AGENTS_DIR = "subagents"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+# OpenCode has no user-level hook runtime of its own.
+UNSUPPORTED_KINDS = ("hooks",)
+
+
+def default_home() -> Path:
+    return Path.home() / ".config" / "opencode"
 
 
 def validate_opencode(inventory: AssetInventory) -> tuple[ValidationMessage, ...]:
@@ -32,7 +58,7 @@ def validate_opencode(inventory: AssetInventory) -> tuple[ValidationMessage, ...
     return tuple(errors)
 
 
-def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_run: bool = False) -> int:
+def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_run: bool = False) -> InstallReport:
     agents = tuple(sorted(inventory.agents, key=lambda agent: agent.name))
     skills = tuple(sorted(inventory.skills, key=lambda skill: skill.name))
     skills_by_name = {skill.name: skill for skill in skills}
@@ -43,8 +69,16 @@ def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_
     rendered_skills = tuple((skill, render_skill_markdown(skill)) for skill in skills)
     validate_install_output(rendered_agents, rendered_skills, bundle_plans)
 
+    counts = {
+        "subagents": len(agents),
+        "skills": len(skills),
+        "rules": len(inventory.rules),
+        "mcps": len(inventory.mcps),
+        "hooks": 0,
+        "specs": len(inventory.specs),
+    }
     if dry_run:
-        print(f"Dry run: would install {len(rendered_agents)} OpenCode agents into {opencode_home}")
+        print(f"Dry run: would install the Mires catalog into {opencode_home}")
         for agent, agent_skills in bundle_plans:
             print(f"- would write {agent_file_path(opencode_home, agent)}")
             print(f"- would refresh {agent_bundle_path(opencode_home, agent)}")
@@ -52,17 +86,70 @@ def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_
                 print(f"  - agent may load skill {skill.name}")
         for skill in skills:
             print(f"- would refresh {skill_package_path(opencode_home, skill)}")
-        return len(rendered_agents)
+        if inventory.rules:
+            print(f"- would update the Mires block in {opencode_home / INSTRUCTIONS_FILE}")
+        if inventory.mcps:
+            print(f"- would register {len(inventory.mcps)} MCP servers in {opencode_home / CONFIG_FILE}")
+        return InstallReport(home=opencode_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
+
+    previous = InstallManifest.load(opencode_home)
+    manifest = InstallManifest(home=opencode_home)
 
     agents_path = opencode_home / AGENTS_DIR
     agents_path.mkdir(parents=True, exist_ok=True)
     for agent, content in rendered_agents:
-        agent_file_path(opencode_home, agent).write_text(content)
+        path = agent_file_path(opencode_home, agent)
+        path.write_text(content)
+        manifest.track_path(path)
     for agent, agent_skills in bundle_plans:
         write_agent_bundle(opencode_home, agent, agent_skills)
+        manifest.track_path(agent_bundle_path(opencode_home, agent))
     for skill, content in rendered_skills:
         write_skill_package(opencode_home, skill, content)
-    return len(rendered_agents)
+        manifest.track_path(skill_package_path(opencode_home, skill))
+
+    if inventory.rules:
+        write_managed_markdown(opencode_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
+
+    if inventory.specs:
+        specs_path = opencode_home / MIRES_DIR / SPECS_DIR
+        copy_generated_tree(inventory.root / "openspec" / "specs", specs_path)
+        manifest.track_path(specs_path)
+
+    write_mcp_servers(opencode_home, inventory.mcps, previous, manifest)
+
+    manifest.prune_stale_paths(previous)
+    manifest.save()
+    return InstallReport(home=opencode_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
+
+
+def write_mcp_servers(
+    opencode_home: Path,
+    mcps: tuple[McpAsset, ...],
+    previous: InstallManifest,
+    manifest: InstallManifest,
+) -> None:
+    """OpenCode nests MCP servers under `mcp` and tags each with a transport type."""
+    path = opencode_home / CONFIG_FILE
+    document = read_json_object(path)
+    servers = dict(document.get("mcp") or {})
+
+    for stale in previous.owned_keys("mcp"):
+        servers.pop(stale, None)
+    for mcp in mcps:
+        if mcp.is_remote:
+            entry: dict[str, Any] = {"type": "remote", "url": mcp.server["url"], "enabled": True}
+        else:
+            command = [mcp.server["command"], *(mcp.server.get("args") or [])]
+            entry = {"type": "local", "command": command, "enabled": True}
+            if mcp.server.get("env"):
+                entry["environment"] = mcp.server["env"]
+        servers[mcp.name] = entry
+
+    document["mcp"] = servers
+    document.setdefault("$schema", "https://opencode.ai/config.json")
+    write_json_object(path, document)
+    manifest.track_keys("mcp", [mcp.name for mcp in mcps])
 
 
 def agent_file_path(opencode_home: Path, agent: AgentAsset) -> Path:
@@ -139,12 +226,6 @@ def agent_mode(agent: AgentAsset) -> str:
     return "primary" if agent.name == PRIMARY_AGENT else "subagent"
 
 
-def referenced_skills(agent: AgentAsset, skills_by_name: dict[str, SkillAsset]) -> tuple[SkillAsset, ...]:
-    text = agent.path.read_text()
-    names = sorted(set(re.findall(r"`skills/([a-z0-9-]+)`", text)))
-    return tuple(skills_by_name[name] for name in names if name in skills_by_name)
-
-
 def write_agent_bundle(opencode_home: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:
     bundle_path = agent_bundle_path(opencode_home, agent)
     if bundle_path.exists():
@@ -162,20 +243,6 @@ def write_skill_package(opencode_home: Path, skill: SkillAsset, skill_content: s
     package_path.mkdir(parents=True, exist_ok=True)
     copy_generated_tree(skill.path.parent, package_path)
     (package_path / SKILL_FILE).write_text(skill_content)
-
-
-def copy_generated_tree(source: Path, destination: Path) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
-    for source_path in sorted(source.rglob("*")):
-        relative_path = source_path.relative_to(source)
-        if any(part == "__pycache__" for part in relative_path.parts) or source_path.suffix == ".pyc":
-            continue
-        destination_path = destination / relative_path
-        if source_path.is_dir():
-            destination_path.mkdir(parents=True, exist_ok=True)
-            continue
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
 
 
 def write_bundle_manifest(bundle_path: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:

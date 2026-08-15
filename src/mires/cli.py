@@ -5,25 +5,27 @@ import argparse
 import sys
 from pathlib import Path
 
-from mires.compatibility.codex import SUPPORTED_TARGET as CODEX_TARGET
-from mires.compatibility.codex import install_codex_agents, validate_codex
-from mires.compatibility.models import AssetInventory, ValidationMessage
-from mires.compatibility.opencode import SUPPORTED_TARGET as OPENCODE_TARGET
-from mires.compatibility.opencode import install_opencode_assets, validate_opencode
+from mires.catalog import CatalogNotFoundError, resolve_root
+from mires.compatibility.models import AssetInventory, InstallReport, ValidationMessage
 from mires.compatibility.parsing import filter_inventory, load_inventory
+from mires.compatibility.targets import ALL_TARGETS, TARGET_SLUGS, TARGETS, Target, resolve_targets
 from mires.state import MiresState, StateFileError, load_state, validate_state
-
-SUPPORTED_TARGETS = (CODEX_TARGET, OPENCODE_TARGET)
 
 EXIT_OK = 0
 EXIT_INVALID = 1
 EXIT_UNSUPPORTED = 2
 
+DEFAULT_TARGET = ALL_TARGETS
+
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    root = args.root.resolve()
+    args = build_parser().parse_args(argv)
+
+    try:
+        root = resolve_root(args.root)
+    except CatalogNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_INVALID
 
     try:
         state = load_state(root)
@@ -35,35 +37,35 @@ def main(argv: list[str] | None = None) -> int:
         return report("Catalog validation failed.", state_errors, root)
 
     if args.command == "validate":
-        print_state_summary(state)
+        print_state_summary(root, state)
         return EXIT_OK
 
-    if args.target not in SUPPORTED_TARGETS:
-        print(f"unsupported compatibility target: {args.target}", file=sys.stderr)
-        return EXIT_UNSUPPORTED
-
     try:
+        targets = resolve_targets(args.target)
         inventory = select_inventory(root, state, args.profile)
     except LookupError as exc:
         print(str(exc), file=sys.stderr)
-        return EXIT_INVALID
+        return EXIT_UNSUPPORTED if "target" in str(exc) else EXIT_INVALID
 
-    target_errors = validate_target(args.target, inventory)
-    if target_errors:
-        return report(f"Compatibility {args.command} failed for target '{args.target}'.", target_errors, root)
-
-    if args.command == "install":
-        return run_install(args, inventory)
-
-    print(f"Compatibility check passed for target '{args.target}'.")
-    print(f"Agents: {len(inventory.agents)}")
-    print(f"Skills: {len(inventory.skills)}")
-    return EXIT_OK
+    exit_code = EXIT_OK
+    for target in targets:
+        target_errors = target.validate(inventory)
+        if target_errors:
+            report(f"Compatibility {args.command} failed for target '{target.slug}'.", target_errors, root)
+            exit_code = EXIT_INVALID
+            continue
+        if args.command == "install":
+            exit_code = run_install(target, inventory, args) or exit_code
+        else:
+            print(f"Compatibility check passed for target '{target.slug}'.")
+            print_inventory_summary(inventory)
+    return exit_code
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Validate the Mires catalog and install it into a supported runtime.",
+        prog="mires",
+        description="Validate the Mires catalog and install it into every supported agent runtime.",
     )
     parser.add_argument(
         "command",
@@ -74,8 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--target",
-        default=CODEX_TARGET,
-        help=f"Runtime target. Supported: {', '.join(SUPPORTED_TARGETS)}.",
+        default=DEFAULT_TARGET,
+        help=f"Runtime target. Supported: {', '.join((*TARGET_SLUGS, ALL_TARGETS))}. Defaults to {ALL_TARGETS}.",
     )
     parser.add_argument(
         "--profile",
@@ -84,21 +86,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path.cwd(),
-        help="Repository root. Defaults to the current working directory.",
+        help="Catalog root. Defaults to the nearest state.yml, then the catalog bundled in the package.",
     )
-    parser.add_argument(
-        "--codex-home",
-        type=Path,
-        default=Path.home() / ".codex",
-        help="Codex home directory for install. Defaults to $HOME/.codex.",
-    )
-    parser.add_argument(
-        "--opencode-home",
-        type=Path,
-        default=Path.home() / ".config" / "opencode",
-        help="OpenCode config directory for install. Defaults to $HOME/.config/opencode.",
-    )
+    for target in TARGETS.values():
+        parser.add_argument(
+            target.destination,
+            type=Path,
+            help=f"{target.display_name} home directory. Defaults to {target.default_home()}.",
+        )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -108,58 +103,60 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def select_inventory(root: Path, state: MiresState, profile_slug: str | None) -> AssetInventory:
-    inventory = load_inventory(root)
+    inventory = load_inventory(root, state)
     if profile_slug is None:
         return inventory
     profile = state.profile(profile_slug)
     if profile is None:
         known = ", ".join(state.profile_slugs()) or "none"
         raise LookupError(f"unknown profile: {profile_slug}. Known profiles: {known}")
-    return filter_inventory(inventory, set(profile.using.subagents), set(profile.using.skills))
+    return filter_inventory(
+        inventory,
+        set(profile.using.subagents),
+        set(profile.using.skills),
+        set(profile.using.rules),
+        set(profile.using.mcps),
+        set(profile.using.hooks),
+    )
 
 
-def run_install(args: argparse.Namespace, inventory: AssetInventory) -> int:
+def run_install(target: Target, inventory: AssetInventory, args: argparse.Namespace) -> int:
+    home = target_home(target, args)
     try:
-        installed = install_target(args.target, inventory, args.codex_home, args.opencode_home, args.dry_run)
+        installed = target.install(inventory, home, args.dry_run)
     except ValueError as exc:
-        print(f"Compatibility install failed for target '{args.target}'.", file=sys.stderr)
+        print(f"Compatibility install failed for target '{target.slug}'.", file=sys.stderr)
         print(f"- {exc}", file=sys.stderr)
         return EXIT_INVALID
-    action = "Would install" if args.dry_run else "Installed"
-    home = target_home(args.target, args.codex_home, args.opencode_home)
-    print(f"{action} {installed} {target_display_name(args.target)} agents into {home}.")
+    print_install_report(target, installed, args.dry_run)
     return EXIT_OK
 
 
-def validate_target(target: str, inventory: AssetInventory) -> tuple[ValidationMessage, ...]:
-    if target == CODEX_TARGET:
-        return validate_codex(inventory)
-    return validate_opencode(inventory)
-
-
-def install_target(
-    target: str,
-    inventory: AssetInventory,
-    codex_home: Path,
-    opencode_home: Path,
-    dry_run: bool,
-) -> int:
-    if target == CODEX_TARGET:
-        return install_codex_agents(inventory, codex_home=codex_home.expanduser().resolve(), dry_run=dry_run)
-    return install_opencode_assets(inventory, opencode_home=opencode_home.expanduser().resolve(), dry_run=dry_run)
-
-
-def target_home(target: str, codex_home: Path, opencode_home: Path) -> Path:
-    home = opencode_home if target == OPENCODE_TARGET else codex_home
+def target_home(target: Target, args: argparse.Namespace) -> Path:
+    override = getattr(args, target.option, None)
+    home = override if override is not None else target.default_home()
     return home.expanduser().resolve()
 
 
-def target_display_name(target: str) -> str:
-    return "OpenCode" if target == OPENCODE_TARGET else "Codex"
+def print_install_report(target: Target, installed: InstallReport, dry_run: bool) -> None:
+    action = "Would install" if dry_run else "Installed"
+    print(f"{action} {installed.summary()} for {target.display_name} into {installed.home}.")
+    if installed.unsupported:
+        kinds = ", ".join(installed.unsupported)
+        print(f"  {target.display_name} has no runtime for: {kinds}. Skipped.")
 
 
-def print_state_summary(state: MiresState) -> None:
+def print_inventory_summary(inventory: AssetInventory) -> None:
+    print(f"Subagents: {len(inventory.agents)}")
+    print(f"Skills: {len(inventory.skills)}")
+    print(f"Rules: {len(inventory.rules)}")
+    print(f"Mcps: {len(inventory.mcps)}")
+    print(f"Hooks: {len(inventory.hooks)}")
+
+
+def print_state_summary(root: Path, state: MiresState) -> None:
     print("Catalog validation passed.")
+    print(f"Root: {root}")
     print(
         f"Profiles: {len(state.config.profiles)} "
         f"({', '.join(state.profile_slugs()) if state.config.profiles else 'none'})"

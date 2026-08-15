@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from mires.compatibility.targets import TARGETS
 from mires.state import load_state, state_path, validate_state
 from mires.state.models import SECTIONS
 
@@ -41,7 +42,6 @@ LEGACY_GRANULAR_PATTERNS = [
         r"\bmacwdo-(?:agent|backend|explorer|planner|project|python|react|researcher|reviewer|tester|typescript)\b",
         r"\bmires-(?:agent-testing|backend-orchestrator|python-|react-query|react-hook-form|typescript-|zod)\b",
         r"\bopenspec-(?:apply-change|archive-change|explore|propose)\b",
-        r"\.codex/skills",
         r"\.ai/(?:agents|skills)",
     ]
 ]
@@ -50,11 +50,14 @@ FORBIDDEN_RUNTIME_TREES = (ROOT / ".codex", ROOT / ".opencode")
 
 COMPATIBILITY_FILES = (
     SRC / "cli.py",
+    SRC / "catalog.py",
     SRC / "compatibility" / "__init__.py",
     SRC / "compatibility" / "models.py",
     SRC / "compatibility" / "parsing.py",
-    SRC / "compatibility" / "codex.py",
-    SRC / "compatibility" / "opencode.py",
+    SRC / "compatibility" / "rendering.py",
+    SRC / "compatibility" / "writing.py",
+    SRC / "compatibility" / "targets.py",
+    *(SRC / "compatibility" / f"{slug}.py" for slug in TARGETS),
     SRC / "state" / "models.py",
     SRC / "state" / "loader.py",
     SRC / "state" / "validate.py",
@@ -158,7 +161,7 @@ def check_compatibility_tooling() -> None:
         if not path.exists():
             fail(f"missing compatibility tooling file: {relative(path)}")
 
-    for target in ("codex", "opencode"):
+    for target in TARGETS:
         result = run_cli("--target", target)
         if result.returncode != 0:
             fail(f"{target} compatibility check failed: {result.stderr.strip() or result.stdout.strip()}")
@@ -166,7 +169,7 @@ def check_compatibility_tooling() -> None:
     unsupported = run_cli("--target", "unsupported-runtime")
     if unsupported.returncode == 0:
         fail("unsupported compatibility target unexpectedly succeeded")
-    if "unsupported compatibility target" not in unsupported.stderr:
+    if "unsupported target: unsupported-runtime" not in unsupported.stderr:
         fail("unsupported compatibility target did not report a clear error")
 
 

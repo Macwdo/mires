@@ -119,12 +119,12 @@ class CodexInstallCommandTests(unittest.TestCase):
             result = run_cli("install", "--target", "codex", "--root", str(ROOT), "--codex-home", str(codex_home))
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Installed 2 Codex agents", result.stdout)
+            self.assertIn("Installed 2 subagents", result.stdout)
             self.assertTrue((codex_home / "agents" / "explorer.toml").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "AGENT.md").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "agents" / "openai.yaml").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "skills" / "mires").exists())
-            self.assertFalse((codex_home / "skills" / "mires").exists())
+            self.assertTrue((codex_home / "skills" / "mires" / "SKILL.md").exists())
             bundled_text = "\n".join(
                 path.read_text()
                 for path in (codex_home / "mires" / "agents").rglob("*")
@@ -147,7 +147,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Dry run: would install 2 Codex agents", result.stdout)
+            self.assertIn("Dry run: would install the Mires catalog", result.stdout)
             self.assertFalse(codex_home.exists())
 
     def test_profile_narrows_the_installed_skill_set(self) -> None:
@@ -167,7 +167,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Would install 2 Codex agents", result.stdout)
+            self.assertIn("Would install 2 subagents, 3 skills", result.stdout)
 
     def test_unknown_profile_fails_clearly(self) -> None:
         result = run_cli("install", "--target", "codex", "--root", str(ROOT), "--profile", "missing")

@@ -25,6 +25,17 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mires"]
 
+# Ship the catalog inside the wheel so `uvx --from git+... mires install` works
+# from any directory, without cloning the repository first.
+[tool.hatch.build.targets.wheel.force-include]
+"state.yml" = "mires/_catalog/state.yml"
+"skills" = "mires/_catalog/skills"
+"subagents" = "mires/_catalog/subagents"
+"rules" = "mires/_catalog/rules"
+"mcps" = "mires/_catalog/mcps"
+"hooks" = "mires/_catalog/hooks"
+"openspec/specs" = "mires/_catalog/openspec/specs"
+
 [tool.pytest.ini_options]
 testpaths = ["src/mires/tests"]
 

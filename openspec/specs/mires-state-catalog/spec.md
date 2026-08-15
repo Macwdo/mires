@@ -74,6 +74,51 @@ The system SHALL allow profiles to name the entries they use, and SHALL install 
 - **WHEN** no profile is given
 - **THEN** the whole declared catalog is installed
 
+### Requirement: One command installs every runtime
+The system SHALL install the whole catalog into every supported runtime from a single command, without requiring a clone of the repository.
+
+#### Scenario: A machine is provisioned from scratch
+- **WHEN** a maintainer runs the published entry point with no arguments beyond `install`
+- **THEN** the catalog is installed into Codex, Cursor, Claude Code, and OpenCode
+- **AND** the catalog is read from the copy shipped inside the package when no `state.yml` is found in the working directory or its parents
+
+#### Scenario: A runtime cannot express an asset kind
+- **WHEN** a target has no runtime for an asset kind, such as hooks in Codex
+- **THEN** that kind is skipped and the command reports which kinds were skipped for that target
+
+#### Scenario: A single runtime is targeted
+- **WHEN** a maintainer passes `--target` with one runtime slug
+- **THEN** only that runtime is written to
+- **AND** an unknown slug fails with the list of supported targets
+
+### Requirement: Installs are idempotent and remove what they no longer own
+The system SHALL record what each install wrote and SHALL remove exactly that on the next install, without disturbing configuration the user owns.
+
+#### Scenario: The same install runs twice
+- **WHEN** an install runs a second time with no catalog change
+- **THEN** the resulting files are byte-for-byte identical to the first run
+
+#### Scenario: An entry is dropped from the catalog or the profile
+- **WHEN** an install runs after an entry is removed from `state.yml` or from the selected profile
+- **THEN** the files and configuration keys that entry owned are removed from the runtime
+
+#### Scenario: A runtime file also holds the user's own configuration
+- **WHEN** an install writes to a shared file such as `CLAUDE.md`, `mcp.json`, `hooks.json`, or `config.toml`
+- **THEN** only the Mires block or the Mires keys are replaced
+- **AND** servers, hooks, and prose the user owns are preserved
+
+### Requirement: Hooks are declared in a runtime-neutral vocabulary
+The system SHALL accept hooks bound only to canonical Mires events and SHALL translate them into each runtime's own event names.
+
+#### Scenario: A hook binds to an unknown event
+- **WHEN** a `hooks.json` binds an event outside the canonical vocabulary
+- **THEN** validation reports the unknown event and lists the known ones
+
+#### Scenario: A hook is installed into a runtime with different event names
+- **WHEN** a canonical event is installed into a runtime that names it differently
+- **THEN** it is written using that runtime's event name and matcher
+- **AND** the command it runs points at the copy installed under the runtime home, not at the repository
+
 ### Requirement: Validation precedes any runtime write
 The system SHALL validate the catalog before checking or installing a runtime target.
 

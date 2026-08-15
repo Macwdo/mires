@@ -7,14 +7,39 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from mires.compatibility.models import AgentAsset, AssetInventory, SkillAsset, ValidationMessage
+from mires.compatibility.models import (
+    AgentAsset,
+    AssetInventory,
+    InstallReport,
+    McpAsset,
+    SkillAsset,
+    ValidationMessage,
+)
+from mires.compatibility.rendering import referenced_skills, rules_document
+from mires.compatibility.writing import (
+    InstallManifest,
+    copy_generated_tree,
+    write_managed_markdown,
+)
 
 SUPPORTED_TARGET = "codex"
+DISPLAY_NAME = "Codex"
 CONFIG_FILE = "config.toml"
+INSTRUCTIONS_FILE = "AGENTS.md"
 AGENTS_DIR = "agents"
+SKILLS_DIR = "skills"
 MIRES_DIR = "mires"
+SPECS_DIR = "specs"
 SOURCE_AGENTS_DIR = "subagents"
 PROMPT_WRAP_WIDTH = 131
+
+# Codex has no general hook runtime, so hooks are recorded in the bundle for
+# reference but never registered.
+UNSUPPORTED_KINDS = ("hooks",)
+
+
+def default_home() -> Path:
+    return Path.home() / ".codex"
 
 
 def validate_codex(inventory: AssetInventory) -> tuple[ValidationMessage, ...]:
@@ -52,37 +77,78 @@ def check_target_supported(target: str, path: Path) -> tuple[ValidationMessage, 
     return (ValidationMessage(path, f"unsupported compatibility target: {target}"),)
 
 
-def install_codex_agents(inventory: AssetInventory, codex_home: Path, dry_run: bool = False) -> int:
+def install_codex_assets(inventory: AssetInventory, codex_home: Path, dry_run: bool = False) -> InstallReport:
     agents = tuple(sorted(inventory.agents, key=lambda agent: agent.name))
-    skills_by_name = {skill.name: skill for skill in inventory.skills}
+    skills = tuple(sorted(inventory.skills, key=lambda skill: skill.name))
+    skills_by_name = {skill.name: skill for skill in skills}
     bundle_plans = tuple((agent, referenced_skills(agent, skills_by_name)) for agent in agents)
-    rendered_agents = tuple((agent, render_agent_toml(agent, skills, codex_home)) for agent, skills in bundle_plans)
+    rendered_agents = tuple(
+        (agent, render_agent_toml(agent, agent_skills, codex_home)) for agent, agent_skills in bundle_plans
+    )
     config_path = codex_home / CONFIG_FILE
     existing_config = config_path.read_text() if config_path.exists() else ""
-    patched_config = patch_agents_config(existing_config, agents)
+    patched_config = patch_mcp_servers_config(patch_agents_config(existing_config, agents), inventory.mcps)
     validate_install_output(rendered_agents, bundle_plans, patched_config)
 
+    counts = {
+        "subagents": len(agents),
+        "skills": len(skills),
+        "rules": len(inventory.rules),
+        "mcps": len(inventory.mcps),
+        "hooks": 0,
+        "specs": len(inventory.specs),
+    }
     if dry_run:
-        print(f"Dry run: would install {len(rendered_agents)} Codex agents into {codex_home}")
-        for agent, skills in bundle_plans:
+        print(f"Dry run: would install the Mires catalog into {codex_home}")
+        for agent, agent_skills in bundle_plans:
             print(f"- would write {agent_file_path(codex_home, agent)}")
             print(f"- would refresh {agent_bundle_path(codex_home, agent)}")
-            for skill in skills:
+            for skill in agent_skills:
                 print(f"  - would bundle skill {skill.name}")
+        for skill in skills:
+            print(f"- would refresh {skill_package_path(codex_home, skill)}")
+        if inventory.rules:
+            print(f"- would update the Mires block in {codex_home / INSTRUCTIONS_FILE}")
         print(f"- would update {config_path}")
-        return len(rendered_agents)
+        return InstallReport(home=codex_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
+
+    previous = InstallManifest.load(codex_home)
+    manifest = InstallManifest(home=codex_home)
 
     agents_dir = codex_home / AGENTS_DIR
     agents_dir.mkdir(parents=True, exist_ok=True)
     remove_legacy_agent_bundle_root(codex_home)
     for agent, content in rendered_agents:
-        agent_file_path(codex_home, agent).write_text(content)
-    for agent, skills in bundle_plans:
-        write_agent_bundle(codex_home, agent, skills)
+        path = agent_file_path(codex_home, agent)
+        path.write_text(content)
+        manifest.track_path(path)
+    for agent, agent_skills in bundle_plans:
+        write_agent_bundle(codex_home, agent, agent_skills)
+        manifest.track_path(agent_bundle_path(codex_home, agent))
+
+    for skill in skills:
+        package = skill_package_path(codex_home, skill)
+        copy_generated_tree(skill.path.parent, package)
+        manifest.track_path(package)
+
+    if inventory.rules:
+        write_managed_markdown(codex_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
+
+    if inventory.specs:
+        specs_path = codex_home / MIRES_DIR / SPECS_DIR
+        copy_generated_tree(inventory.root / "openspec" / "specs", specs_path)
+        manifest.track_path(specs_path)
 
     codex_home.mkdir(parents=True, exist_ok=True)
     config_path.write_text(patched_config)
-    return len(rendered_agents)
+
+    manifest.prune_stale_paths(previous)
+    manifest.save()
+    return InstallReport(home=codex_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
+
+
+def skill_package_path(codex_home: Path, skill: SkillAsset) -> Path:
+    return codex_home / SKILLS_DIR / skill.name
 
 
 def agent_file_path(codex_home: Path, agent: AgentAsset) -> Path:
@@ -159,12 +225,6 @@ Mires source assets and run the installer again.
     return wrap_prompt(prompt.strip())
 
 
-def referenced_skills(agent: AgentAsset, skills_by_name: dict[str, SkillAsset]) -> tuple[SkillAsset, ...]:
-    text = agent.path.read_text()
-    names = sorted(set(re.findall(r"`skills/([a-z0-9-]+)`", text)))
-    return tuple(skills_by_name[name] for name in names if name in skills_by_name)
-
-
 def write_agent_bundle(codex_home: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:
     bundle_path = agent_bundle_path(codex_home, agent)
     if bundle_path.exists():
@@ -176,20 +236,6 @@ def write_agent_bundle(codex_home: Path, agent: AgentAsset, skills: tuple[SkillA
     for skill in skills:
         copy_generated_tree(skill.path.parent, skills_path / skill.name)
     write_bundle_manifest(bundle_path, agent, skills)
-
-
-def copy_generated_tree(source: Path, destination: Path) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
-    for source_path in sorted(source.rglob("*")):
-        relative_path = source_path.relative_to(source)
-        if any(part == "__pycache__" for part in relative_path.parts) or source_path.suffix == ".pyc":
-            continue
-        destination_path = destination / relative_path
-        if source_path.is_dir():
-            destination_path.mkdir(parents=True, exist_ok=True)
-            continue
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
 
 
 def write_bundle_manifest(bundle_path: Path, agent: AgentAsset, skills: tuple[SkillAsset, ...]) -> None:
@@ -251,6 +297,39 @@ def patch_agents_config(config_text: str, agents: tuple[AgentAsset, ...]) -> str
     return patched.rstrip() + "\n"
 
 
+def patch_mcp_servers_config(config_text: str, mcps: tuple[McpAsset, ...]) -> str:
+    """Replace the `[mcp_servers.<name>]` tables Mires owns, leaving the user's own servers alone."""
+    patched = config_text.rstrip()
+    for mcp in mcps:
+        patched = _remove_table(patched, f"mcp_servers.{mcp.name}")
+    blocks = [_mcp_registration_block(mcp) for mcp in sorted(mcps, key=lambda item: item.name)]
+    if blocks:
+        patched = patched.rstrip() + "\n\n" + "\n\n".join(blocks)
+    return patched.rstrip() + "\n"
+
+
+def _mcp_registration_block(mcp: McpAsset) -> str:
+    lines = [f"[mcp_servers.{mcp.name}]"]
+    nested: list[str] = []
+    for key, value in mcp.server.items():
+        if isinstance(value, dict):
+            nested.append(f"\n[mcp_servers.{mcp.name}.{key}]")
+            nested.extend(f"{nested_key} = {_toml_value(nested_value)}" for nested_key, nested_value in value.items())
+            continue
+        lines.append(f"{key} = {_toml_value(value)}")
+    return "\n".join(lines + nested)
+
+
+def _toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, list):
+        return _toml_string_array(tuple(str(item) for item in value))
+    return f'"{_toml_escape(str(value))}"'
+
+
 def _mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -292,18 +371,17 @@ def normalize_default_prompt(prompt: str, agent: AgentAsset) -> str:
 
 
 def _remove_table(text: str, table_name: str) -> str:
-    pattern = _table_pattern(table_name)
-    match = pattern.search(text)
-    if not match:
-        return text
-    start = match.start()
-    next_match = _any_table_pattern().search(text, match.end())
-    end = next_match.start() if next_match else len(text)
-    before = text[:start].rstrip()
-    after = text[end:].lstrip("\n")
-    if before and after:
-        return before + "\n\n" + after
-    return before + after
+    """Drop a table and every sub-table beneath it, so a re-install never duplicates nested keys."""
+    while True:
+        match = _table_tree_pattern(table_name).search(text)
+        if not match:
+            return text
+        start = match.start()
+        next_match = _any_table_pattern().search(text, match.end())
+        end = next_match.start() if next_match else len(text)
+        before = text[:start].rstrip()
+        after = text[end:].lstrip("\n")
+        text = before + "\n\n" + after if before and after else before + after
 
 
 def _has_table(text: str, table_name: str) -> bool:
@@ -312,6 +390,10 @@ def _has_table(text: str, table_name: str) -> bool:
 
 def _table_pattern(table_name: str) -> Any:
     return re.compile(rf"(?m)^\[{re.escape(table_name)}\]\s*$")
+
+
+def _table_tree_pattern(table_name: str) -> Any:
+    return re.compile(rf"(?m)^\[{re.escape(table_name)}(\.[^\]]+)?\]\s*$")
 
 
 def _any_table_pattern() -> Any:

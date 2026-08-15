@@ -20,6 +20,8 @@ Rules that apply to both:
 
 `state.yml` is the catalog definition; `skills/`, `subagents/`, `rules/`, `mcps/`, and `hooks/` hold the files it declares. The `mires` CLI lives in `src/mires/`, with the state parser in `src/mires/state/`, runtime adapters in `src/mires/compatibility/`, repository scripts in `src/mires/scripts/`, and tests in `src/mires/tests/`.
 
+Mires installs into Codex, Cursor, Claude Code, and OpenCode. Each is an adapter in `src/mires/compatibility/` registered in `targets.py`; the CLI dispatches through that registry and has no per-runtime branches. Shared write primitives live in `writing.py` and shared renderers in `rendering.py`, so an adapter only holds what is genuinely specific to its runtime.
+
 Skills use `SKILL.md` with YAML front matter (`name`, `description`) and keep detailed material under `references/`. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
 
 Skills are aggregated by domain: `mires`, `mires-python`, `mires-django`, `mires-react`, `mires-typescript`. Per-library and per-practice guidance is a topic inside a domain, at `references/<topic>/rules.md` with its focused documents beside it, routed from the domain's `SKILL.md`. Add a topic rather than a skill unless the subject fits none of the five domains.
@@ -31,7 +33,7 @@ Keep directory names lowercase kebab-case.
 ```bash
 uv sync                                                   # install the toolchain
 uv run mires validate                                     # catalog definition against the files on disk
-uv run mires check --target codex                         # runtime compatibility
+uv run mires check                                        # every runtime target
 uv run python -m mires.scripts.verify_agent_first_surface # repository-wide surface checks
 uv run pytest                                             # the test suite
 ```
@@ -57,6 +59,10 @@ Existing project conventions override generic best practices and reusable skill 
 Adding, renaming, or removing a skill, subagent, rule, MCP server, or hook is a two-part change: the files and the `state.yml` entry. The validator rejects either half on its own, so keep them in the same commit and update every profile that should carry the entry.
 
 Catalog membership is not hardcoded anywhere in Python. If a check needs to know what exists, it should read `state.yml` rather than grow its own list.
+
+A hook binds to one of the canonical events in `parsing.py` (`beforeSubmitPrompt`, `beforeShellExecution`, `beforeReadFile`, `afterFileEdit`, `stop`); each adapter translates those into its runtime's vocabulary. Never write a runtime-specific event name into `hooks.json`.
+
+Installs must stay idempotent and must remove what they no longer own. Runtime homes are shared with the user, so write only inside the Mires block or the Mires keys, and record every path and key in the install manifest.
 
 ## Testing Guidelines
 

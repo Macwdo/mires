@@ -1,8 +1,20 @@
 # Mires
 
-Mires is Macwdo's personal engineering agent, versioned as one repository. It owns a catalog of skills, subagents, rules, MCP servers, and hooks, and installs a chosen slice of that catalog into a supported runtime.
+Mires is Macwdo's personal engineering agent, versioned as one repository. It does two things: it holds the versioned state of every agent configuration, and it installs that state into whichever agent runtime is on the machine.
 
 `state.yml` is the definition. Every catalog entry is declared there and backed by real files in the matching directory. Nothing is discovered implicitly: an entry that is not declared is an error, and a declared entry without files is an error.
+
+## Install
+
+One command provisions Codex, Cursor, Claude Code, and OpenCode with the whole catalog:
+
+```bash
+uvx --from git+https://github.com/Macwdo/mires mires install
+```
+
+No clone is needed. The catalog ships inside the package, so the command works from any directory. From a clone, `uv run mires install` does the same thing against the working tree.
+
+Every install is idempotent, and re-running after dropping an entry from `state.yml` removes it from the runtimes too.
 
 ## Repository Layout
 
@@ -14,8 +26,10 @@ Mires is Macwdo's personal engineering agent, versioned as one repository. It ow
 | `rules/<slug>.md` | Standing rules that apply across work. |
 | `mcps/<slug>/mcp.json` | MCP server configuration. |
 | `hooks/<slug>/hooks.json` | Hook definitions and their scripts. |
-| `src/mires/` | The `mires` CLI: state parser, compatibility adapters, scripts, and tests. |
+| `src/mires/` | The `mires` CLI: state parser, runtime adapters, scripts, and tests. |
 | `openspec/` | Spec-driven change proposals and their archive. |
+
+Adding a runtime means adding one adapter under `src/mires/compatibility/` and registering it in `targets.py`. The CLI has no per-runtime branches.
 
 ## The State Definition
 
@@ -46,13 +60,14 @@ Install the toolchain once with `uv sync`, then:
 
 ```bash
 uv run mires validate                                    # check state.yml against the files on disk
-uv run mires check --target codex                        # check runtime compatibility
-uv run mires install --target codex                      # install the whole catalog
-uv run mires install --target codex --profile personal   # install only what a profile selects
-uv run mires install --target opencode --dry-run         # preview without writing
+uv run mires check                                       # check every runtime for compatibility
+uv run mires install                                     # install the whole catalog everywhere
+uv run mires install --target cursor                     # install into one runtime
+uv run mires install --profile personal                  # install only what a profile selects
+uv run mires install --dry-run                           # preview without writing
 ```
 
-Validation runs before every check and install, so a broken catalog fails before anything is written.
+`--target` accepts `codex`, `cursor`, `claude`, `opencode`, or `all`, and defaults to `all`. Validation runs before every check and install, so a broken catalog fails before anything is written.
 
 Two more checks cover the repository as a whole:
 
@@ -61,13 +76,42 @@ uv run python -m mires.scripts.verify_agent_first_surface
 uv run pytest
 ```
 
-## Install Targets
+## What Lands Where
 
-`--target codex` writes generated agent config layers to `$HOME/.codex/agents/`, registers them in `$HOME/.codex/config.toml` under `[agents.<name>]`, and creates private agent bundles under `$HOME/.codex/mires/agents/<name>/`.
+Every runtime receives the whole catalog, translated into that runtime's own conventions.
 
-`--target opencode` writes generated Markdown agents to `$HOME/.config/opencode/agents/`, skills to `$HOME/.config/opencode/skills/`, and bundles to `$HOME/.config/opencode/mires/agents/<name>/`.
+| Asset | Codex | Cursor | Claude Code | OpenCode |
+| --- | --- | --- | --- | --- |
+| Subagents | `agents/<slug>.toml` + `config.toml` | `agents/<slug>.md` | `agents/<slug>.md` | `agents/<slug>.md` |
+| Skills | `skills/<slug>/` | `skills/<slug>/` | `skills/<slug>/` | `skills/<slug>/` |
+| Rules | block in `AGENTS.md` | `rules/<slug>.mdc` | block in `CLAUDE.md` | block in `AGENTS.md` |
+| MCP servers | `config.toml` `[mcp_servers]` | `mcp.json` | `~/.claude.json` | `opencode.json` `mcp` |
+| Hooks | not supported | `hooks.json` | `settings.json` | not supported |
+| Specs | `mires/specs/` | `mires/specs/` | `mires/specs/` | `mires/specs/` |
 
-Everything under those homes is generated output. The canonical source is this repository; do not edit generated files. Use `--codex-home` or `--opencode-home` to install somewhere isolated.
+Homes default to `~/.codex`, `~/.cursor`, `~/.claude`, and `~/.config/opencode`. Override any of them with `--codex-home`, `--cursor-home`, `--claude-home`, or `--opencode-home`.
+
+Codex and OpenCode have no user-level hook runtime, so hooks are skipped there and the install says so.
+
+### Hook Events
+
+A hook binds to a canonical Mires event, and each runtime translates it. Cursor uses these names directly; Claude Code routes them through its own events and tool matchers.
+
+| Mires event | Cursor | Claude Code |
+| --- | --- | --- |
+| `beforeSubmitPrompt` | `beforeSubmitPrompt` | `UserPromptSubmit` |
+| `beforeShellExecution` | `beforeShellExecution` | `PreToolUse` matching `Bash` |
+| `beforeReadFile` | `beforeReadFile` | `PreToolUse` matching `Read` |
+| `afterFileEdit` | `afterFileEdit` | `PostToolUse` matching the edit tools |
+| `stop` | `stop` | `Stop` |
+
+Hook scripts are copied into the runtime home, so an install never depends on the repository staying where it is.
+
+### Generated Output Is Not Yours To Edit
+
+Everything Mires writes is generated from this repository. Mires shares those homes with you and with other tools, so it only ever touches what it owns: it replaces its own block in `AGENTS.md` and `CLAUDE.md`, and its own keys in `mcp.json`, `hooks.json`, `settings.json`, and `config.toml`. Your own servers, hooks, and prose survive an install.
+
+What each install wrote is recorded in `<home>/mires/install-manifest.json`, which is how the next install knows what to remove.
 
 ## Skills
 
@@ -102,6 +146,8 @@ bunx skills add Macwdo/mires --skill mires-typescript -g -a codex
 2. Declare the entry in `state.yml`, keeping the front matter `name` equal to the slug.
 3. Add the slug to every profile that should use it.
 4. Run `uv run mires validate`.
+
+An MCP server is described once, in the shape `mcp.json` already uses (`command`, `args`, `env`, or `url`); each target reshapes it. A hook binds to a canonical event and keeps its scripts beside `hooks.json`.
 
 ## Adding A Topic
 

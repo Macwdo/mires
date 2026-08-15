@@ -90,7 +90,7 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Installed 2 OpenCode agents", result.stdout)
+            self.assertIn("Installed 2 subagents", result.stdout)
             self.assertTrue((opencode_home / "agents" / "planner.md").exists())
             self.assertTrue((opencode_home / "mires" / "agents" / "planner" / "AGENT.md").exists())
             self.assertTrue((opencode_home / "skills" / "mires-python" / "SKILL.md").exists())
@@ -129,7 +129,7 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Dry run: would install 2 OpenCode agents", result.stdout)
+            self.assertIn("Dry run: would install the Mires catalog", result.stdout)
             self.assertFalse(opencode_home.exists())
 
 
@@ -144,7 +144,7 @@ class CompatibilityTargetDispatchTests(unittest.TestCase):
         result = run_cli("--target", "unsupported-runtime", "--root", str(ROOT))
 
         self.assertEqual(result.returncode, 2)
-        self.assertIn("unsupported compatibility target", result.stderr)
+        self.assertIn("unsupported target: unsupported-runtime", result.stderr)
 
 
 if __name__ == "__main__":
