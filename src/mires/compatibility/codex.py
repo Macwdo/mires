@@ -85,9 +85,14 @@ def install_codex_assets(inventory: AssetInventory, codex_home: Path, dry_run: b
     rendered_agents = tuple(
         (agent, render_agent_toml(agent, agent_skills, codex_home)) for agent, agent_skills in bundle_plans
     )
+    previous = InstallManifest.load(codex_home)
     config_path = codex_home / CONFIG_FILE
     existing_config = config_path.read_text() if config_path.exists() else ""
-    patched_config = patch_mcp_servers_config(patch_agents_config(existing_config, agents), inventory.mcps)
+    patched_config = patch_mcp_servers_config(
+        patch_agents_config(existing_config, agents, previous.owned_keys("agents")),
+        inventory.mcps,
+        previous.owned_keys("mcp_servers"),
+    )
     validate_install_output(rendered_agents, bundle_plans, patched_config)
 
     counts = {
@@ -109,10 +114,11 @@ def install_codex_assets(inventory: AssetInventory, codex_home: Path, dry_run: b
             print(f"- would refresh {skill_package_path(codex_home, skill)}")
         if inventory.rules:
             print(f"- would update the Mires block in {codex_home / INSTRUCTIONS_FILE}")
+        elif (codex_home / INSTRUCTIONS_FILE).exists():
+            print(f"- would clear the Mires block in {codex_home / INSTRUCTIONS_FILE}")
         print(f"- would update {config_path}")
         return InstallReport(home=codex_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
 
-    previous = InstallManifest.load(codex_home)
     manifest = InstallManifest(home=codex_home)
 
     agents_dir = codex_home / AGENTS_DIR
@@ -131,8 +137,7 @@ def install_codex_assets(inventory: AssetInventory, codex_home: Path, dry_run: b
         copy_generated_tree(skill.path.parent, package)
         manifest.track_path(package)
 
-    if inventory.rules:
-        write_managed_markdown(codex_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
+    write_managed_markdown(codex_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
 
     if inventory.specs:
         specs_path = codex_home / MIRES_DIR / SPECS_DIR
@@ -141,6 +146,8 @@ def install_codex_assets(inventory: AssetInventory, codex_home: Path, dry_run: b
 
     codex_home.mkdir(parents=True, exist_ok=True)
     config_path.write_text(patched_config)
+    manifest.track_keys("agents", [agent.name for agent in agents])
+    manifest.track_keys("mcp_servers", [mcp.name for mcp in inventory.mcps])
 
     manifest.prune_stale_paths(previous)
     manifest.save()
@@ -272,40 +279,52 @@ def validate_install_output(
             if not skill.path.exists():
                 raise ValueError(f"missing source skill file for {agent.name}: {skill.path}")
     try:
-        tomllib.loads(config_text)
+        if config_text.strip():
+            tomllib.loads(config_text)
     except tomllib.TOMLDecodeError as exc:
         raise ValueError(f"patched Codex config TOML is invalid: {exc}") from exc
 
 
-def patch_agents_config(config_text: str, agents: tuple[AgentAsset, ...]) -> str:
+def patch_agents_config(
+    config_text: str,
+    agents: tuple[AgentAsset, ...],
+    previous_names: list[str] | tuple[str, ...] = (),
+) -> str:
+    """Rewrite Mires-owned `[agents.<name>]` tables, including ones the last install left behind."""
     normalized = config_text.rstrip()
     blocks = [_agent_registration_block(agent) for agent in sorted(agents, key=lambda item: item.name)]
     without_managed = normalized
-    for agent in agents:
-        without_managed = _remove_table(without_managed, f"agents.{agent.name}")
+    for name in sorted({*previous_names, *(agent.name for agent in agents)}):
+        without_managed = _remove_table(without_managed, f"agents.{name}")
 
     if _has_table(without_managed, "agents"):
         patched = without_managed.rstrip()
-    else:
+    elif blocks:
         patched = without_managed.rstrip()
         if patched:
             patched += "\n\n"
         patched += "[agents]"
+    else:
+        patched = without_managed.rstrip()
 
     if blocks:
         patched = patched.rstrip() + "\n\n" + "\n\n".join(blocks)
-    return patched.rstrip() + "\n"
+    return patched.rstrip() + "\n" if patched else ""
 
 
-def patch_mcp_servers_config(config_text: str, mcps: tuple[McpAsset, ...]) -> str:
+def patch_mcp_servers_config(
+    config_text: str,
+    mcps: tuple[McpAsset, ...],
+    previous_names: list[str] | tuple[str, ...] = (),
+) -> str:
     """Replace the `[mcp_servers.<name>]` tables Mires owns, leaving the user's own servers alone."""
     patched = config_text.rstrip()
-    for mcp in mcps:
-        patched = _remove_table(patched, f"mcp_servers.{mcp.name}")
+    for name in sorted({*previous_names, *(mcp.name for mcp in mcps)}):
+        patched = _remove_table(patched, f"mcp_servers.{name}")
     blocks = [_mcp_registration_block(mcp) for mcp in sorted(mcps, key=lambda item: item.name)]
     if blocks:
         patched = patched.rstrip() + "\n\n" + "\n\n".join(blocks)
-    return patched.rstrip() + "\n"
+    return patched.rstrip() + "\n" if patched else ""
 
 
 def _mcp_registration_block(mcp: McpAsset) -> str:

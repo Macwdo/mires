@@ -106,6 +106,8 @@ def install_claude_assets(inventory: AssetInventory, home: Path, dry_run: bool =
             print(f"- would refresh {skill_path(home, skill)}")
         if inventory.rules:
             print(f"- would update the Mires block in {home / MEMORY_FILE}")
+        elif (home / MEMORY_FILE).exists():
+            print(f"- would clear the Mires block in {home / MEMORY_FILE}")
         if inventory.mcps:
             print(f"- would register {len(inventory.mcps)} MCP servers in {user_config_path(home)}")
         if inventory.hooks:
@@ -126,8 +128,7 @@ def install_claude_assets(inventory: AssetInventory, home: Path, dry_run: bool =
         copy_generated_tree(skill.path.parent, path)
         manifest.track_path(path)
 
-    if inventory.rules:
-        write_managed_markdown(home / MEMORY_FILE, rules_document(inventory.rules))
+    write_managed_markdown(home / MEMORY_FILE, rules_document(inventory.rules))
 
     if inventory.specs:
         specs_path = home / MIRES_DIR / SPECS_DIR

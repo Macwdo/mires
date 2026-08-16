@@ -38,7 +38,12 @@ def agent_base_prompt(agent: AgentAsset) -> str:
 
 
 def rules_document(rules: tuple[RuleAsset, ...]) -> str:
-    """The standing rules, rendered as one Markdown block for a shared instructions file."""
+    """The standing rules, rendered as one Markdown block for a shared instructions file.
+
+    An empty catalog yields an empty string so the installer can clear the managed block.
+    """
+    if not rules:
+        return ""
     lines = [
         "# Mires Rules",
         "",

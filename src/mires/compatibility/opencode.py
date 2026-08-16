@@ -88,6 +88,8 @@ def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_
             print(f"- would refresh {skill_package_path(opencode_home, skill)}")
         if inventory.rules:
             print(f"- would update the Mires block in {opencode_home / INSTRUCTIONS_FILE}")
+        elif (opencode_home / INSTRUCTIONS_FILE).exists():
+            print(f"- would clear the Mires block in {opencode_home / INSTRUCTIONS_FILE}")
         if inventory.mcps:
             print(f"- would register {len(inventory.mcps)} MCP servers in {opencode_home / CONFIG_FILE}")
         return InstallReport(home=opencode_home, counts=counts, unsupported=UNSUPPORTED_KINDS)
@@ -108,8 +110,7 @@ def install_opencode_assets(inventory: AssetInventory, opencode_home: Path, dry_
         write_skill_package(opencode_home, skill, content)
         manifest.track_path(skill_package_path(opencode_home, skill))
 
-    if inventory.rules:
-        write_managed_markdown(opencode_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
+    write_managed_markdown(opencode_home / INSTRUCTIONS_FILE, rules_document(inventory.rules))
 
     if inventory.specs:
         specs_path = opencode_home / MIRES_DIR / SPECS_DIR

@@ -18,6 +18,7 @@ from typing import Any
 __all__ = [
     "GENERATED_NOTICE",
     "InstallManifest",
+    "clear_managed_markdown",
     "copy_generated_tree",
     "install_hook_scripts",
     "managed_markdown_block",
@@ -130,7 +131,14 @@ def managed_markdown_block(body: str) -> str:
 
 
 def write_managed_markdown(path: Path, body: str) -> None:
-    """Replace the Mires block in a shared Markdown file, preserving the user's own prose."""
+    """Replace the Mires block in a shared Markdown file, preserving the user's own prose.
+
+    An empty body removes the block entirely so dropping every rule from the catalog
+    is reversible, the same way path and key pruning reverse other asset kinds.
+    """
+    if not body.strip():
+        clear_managed_markdown(path)
+        return
     block = managed_markdown_block(body)
     existing = path.read_text() if path.exists() else ""
     before, _, remainder = existing.partition(BLOCK_BEGIN)
@@ -141,6 +149,22 @@ def write_managed_markdown(path: Path, body: str) -> None:
         merged = f"{existing.rstrip()}\n\n{block}".strip()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(merged + "\n")
+
+
+def clear_managed_markdown(path: Path) -> None:
+    """Remove the Mires block from a shared Markdown file, leaving the user's prose."""
+    if not path.exists():
+        return
+    existing = path.read_text()
+    before, found, remainder = existing.partition(BLOCK_BEGIN)
+    if not found:
+        return
+    _, _, after = remainder.partition(BLOCK_END)
+    merged = f"{before.rstrip()}\n{after.lstrip()}".strip()
+    if merged:
+        path.write_text(merged + "\n")
+    else:
+        path.unlink()
 
 
 def read_json_object(path: Path) -> dict[str, Any]:

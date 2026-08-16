@@ -7,10 +7,24 @@ import unittest
 from pathlib import Path
 
 from mires.catalog import BUNDLED_ROOT, CatalogNotFoundError, resolve_root
+from mires.compatibility.cursor import PLUGIN_DIR
 from mires.compatibility.targets import TARGETS, resolve_targets
 
 ROOT = Path(__file__).resolve().parents[3]
 CLI = ["-m", "mires.cli"]
+
+EXPECTED_SURFACES = {
+    "codex": ("agents/explorer.toml", "skills/mires/SKILL.md", "AGENTS.md", "config.toml"),
+    "cursor": (
+        "agents/explorer.md",
+        "skills/mires/SKILL.md",
+        f"{PLUGIN_DIR}/rules/no-secrets.mdc",
+        "mcp.json",
+        "hooks.json",
+    ),
+    "claude": ("agents/explorer.md", "skills/mires/SKILL.md", "CLAUDE.md", "settings.json"),
+    "opencode": ("agents/explorer.md", "skills/mires/SKILL.md", "AGENTS.md", "opencode.json"),
+}
 
 
 def run_cli(*arguments: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -42,8 +56,12 @@ class SingleCommandInstallTests(unittest.TestCase):
             for slug, home in mapping.items():
                 with self.subTest(target=slug):
                     self.assertIn(TARGETS[slug].display_name, result.stdout)
-                    self.assertTrue((home / "skills" / "mires" / "SKILL.md").exists())
                     self.assertTrue((home / "mires" / "install-manifest.json").exists())
+                    for relative in EXPECTED_SURFACES[slug]:
+                        self.assertTrue((home / relative).exists(), relative)
+            self.assertIn("Codex has no runtime for: hooks", result.stdout)
+            self.assertIn("OpenCode has no runtime for: hooks", result.stdout)
+            self.assertTrue((mapping["claude"].parent / ".claude.json").exists())
 
     def test_installing_twice_changes_nothing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
