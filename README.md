@@ -27,7 +27,6 @@ Every install is idempotent, and re-running after dropping an entry from `state.
 | `mcps/<slug>/mcp.json` | MCP server configuration. |
 | `hooks/<slug>/hooks.json` | Hook definitions and their scripts. |
 | `src/mires/` | The `mires` CLI: state parser, runtime adapters, scripts, and tests. |
-| `openspec/` | Spec-driven change proposals and their archive. |
 
 Adding a runtime means adding one adapter under `src/mires/compatibility/` and registering it in `targets.py`. The CLI has no per-runtime branches.
 
@@ -88,6 +87,8 @@ Every runtime receives the whole catalog, translated into that runtime's own con
 | MCP servers | `config.toml` `[mcp_servers]` | `mcp.json` | `~/.claude.json` | `opencode.json` `mcp` |
 | Hooks | not supported | `hooks.json` | `settings.json` | not supported |
 | Specs | `mires/specs/` | `mires/specs/` | `mires/specs/` | `mires/specs/` |
+
+Specs are optional: when an `openspec/specs/` directory exists at the catalog root, its Markdown is installed alongside everything else. There is none right now, so that row is inert.
 
 Homes default to `~/.codex`, `~/.cursor`, `~/.claude`, and `~/.config/opencode`. Override any of them with `--codex-home`, `--cursor-home`, `--claude-home`, or `--opencode-home`.
 

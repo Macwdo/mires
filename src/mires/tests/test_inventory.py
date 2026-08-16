@@ -62,6 +62,7 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(inventory.mcps[0].server, {"command": "run-server", "args": ["--flag"]})
             self.assertEqual(tuple(inventory.hooks[0].events), ("afterFileEdit",))
             self.assertIn("Do the thing.", inventory.rules[0].body)
+            self.assertEqual(inventory.specs, (), "a catalog without openspec/specs is still valid")
 
     def test_a_server_must_declare_a_command_or_a_url(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -95,7 +96,7 @@ class InventoryTests(unittest.TestCase):
         inventory = load_inventory(ROOT, load_state(ROOT))
 
         self.assertEqual(inventory.errors, ())
-        self.assertTrue(inventory.rules and inventory.mcps and inventory.hooks and inventory.specs)
+        self.assertTrue(inventory.rules and inventory.mcps and inventory.hooks)
         for hook in inventory.hooks:
             for event in hook.events:
                 with self.subTest(hook=hook.name, event=event):

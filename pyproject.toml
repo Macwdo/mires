@@ -34,7 +34,6 @@ packages = ["src/mires"]
 "rules" = "mires/_catalog/rules"
 "mcps" = "mires/_catalog/mcps"
 "hooks" = "mires/_catalog/hooks"
-"openspec/specs" = "mires/_catalog/openspec/specs"
 
 [tool.pytest.ini_options]
 testpaths = ["src/mires/tests"]

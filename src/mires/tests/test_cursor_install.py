@@ -41,7 +41,6 @@ class CursorInstallTests(unittest.TestCase):
             self.assertTrue((home / PLUGIN_DIR / ".cursor-plugin" / "plugin.json").exists())
             self.assertTrue((home / "mcp.json").exists())
             self.assertTrue((home / "hooks.json").exists())
-            self.assertTrue((home / "mires" / "specs").is_dir())
 
     def test_rules_ship_as_a_local_plugin_because_cursor_has_no_global_rules_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

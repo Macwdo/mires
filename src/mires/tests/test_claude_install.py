@@ -39,7 +39,6 @@ class ClaudeInstallTests(unittest.TestCase):
             self.assertTrue((home / "CLAUDE.md").exists())
             self.assertTrue((home / "settings.json").exists())
             self.assertTrue((home.parent / ".claude.json").exists())
-            self.assertTrue((home / "mires" / "specs").is_dir())
 
     def test_subagents_carry_the_frontmatter_claude_requires(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
