@@ -16,15 +16,25 @@ from mires.state.models import (
 FRONTMATTER_SECTIONS = {"skills": "SKILL.md", "subagents": "AGENT.md"}
 
 
-def validate_state(root: Path, state: MiresState) -> tuple[ValidationMessage, ...]:
-    """Check the state definition against the catalogs it declares and the files on disk."""
+def validate_state(
+    root: Path,
+    state: MiresState,
+    *,
+    enforce_skill_visibility: bool = True,
+) -> tuple[ValidationMessage, ...]:
+    """Check the state definition against the catalogs it declares and the files on disk.
+
+    `enforce_skill_visibility` is what the Mires catalog itself must satisfy. A project
+    catalog holds whatever its own skills look like, so it turns that rule off.
+    """
     root = root.resolve()
     errors: list[ValidationMessage] = []
     errors.extend(_check_profile_references(root, state))
     for section in SECTIONS:
         errors.extend(_check_entries_exist(root, state, section))
         errors.extend(_check_orphans(root, state, section))
-    errors.extend(_check_skill_visibility(root, state))
+    if enforce_skill_visibility:
+        errors.extend(_check_skill_visibility(root, state))
     return tuple(errors)
 
 

@@ -18,7 +18,7 @@ Rules that apply to both:
 
 ## Project Structure
 
-`state.yml` is the catalog definition; `skills/`, `subagents/`, `rules/`, `mcps/`, and `hooks/` hold the files it declares. The `mires` CLI lives in `src/mires/`, with the state parser in `src/mires/state/`, runtime adapters in `src/mires/compatibility/`, repository scripts in `src/mires/scripts/`, and tests in `src/mires/tests/`.
+`state.yml` is the catalog definition; `skills/`, `subagents/`, `rules/`, `mcps/`, and `hooks/` hold the files it declares. The `mires` CLI lives in `src/mires/`, with the state parser in `src/mires/state/`, project sync in `src/mires/project/`, runtime adapters in `src/mires/compatibility/`, repository scripts in `src/mires/scripts/`, and tests in `src/mires/tests/`.
 
 Mires installs into Codex, Cursor, Claude Code, and OpenCode. Each is an adapter in `src/mires/compatibility/` registered in `targets.py`; the CLI dispatches through that registry and has no per-runtime branches. Shared write primitives live in `writing.py` and shared renderers in `rendering.py`, so an adapter only holds what is genuinely specific to its runtime.
 
@@ -63,6 +63,8 @@ Catalog membership is not hardcoded anywhere in Python. If a check needs to know
 A hook binds to one of the canonical events in `parsing.py` (`beforeSubmitPrompt`, `beforeShellExecution`, `beforeReadFile`, `afterFileEdit`, `stop`); each adapter translates those into its runtime's vocabulary. Never write a runtime-specific event name into `hooks.json`.
 
 Installs must stay idempotent and must remove what they no longer own. Runtime homes are shared with the user, so write only inside the Mires block or the Mires keys, and record every path and key in the install manifest.
+
+A project is a directory with `.mires/state.yml`. `mires project sync` copies only what that file declares (catalog entries under `.mires/` and `project.include`) into `projects/<slug>/` of a git repository. Source code is never part of the payload. Git is transport; the state file is the reference.
 
 ## Testing Guidelines
 

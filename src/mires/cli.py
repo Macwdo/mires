@@ -9,6 +9,7 @@ from mires.catalog import CatalogNotFoundError, resolve_root
 from mires.compatibility.models import AssetInventory, InstallReport, ValidationMessage
 from mires.compatibility.parsing import filter_inventory, load_inventory
 from mires.compatibility.targets import ALL_TARGETS, TARGET_SLUGS, TARGETS, Target, resolve_targets
+from mires.project.cli import main as project_main
 from mires.state import MiresState, StateFileError, load_state, validate_state
 
 EXIT_OK = 0
@@ -17,8 +18,18 @@ EXIT_UNSUPPORTED = 2
 
 DEFAULT_TARGET = ALL_TARGETS
 
+# Projects are synced, not installed, so they get their own command group rather than
+# another flag on a command whose every option is about runtime homes.
+PROJECT_COMMAND = "project"
+PROJECT_SYNC_ALIAS = "project-sync"
+
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in (PROJECT_COMMAND, PROJECT_SYNC_ALIAS):
+        rest = argv[1:] if argv[0] == PROJECT_COMMAND else ["sync", *argv[1:]]
+        return project_main(rest)
+
     args = build_parser().parse_args(argv)
 
     try:
@@ -66,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mires",
         description="Validate the Mires catalog and install it into every supported agent runtime.",
+        epilog=(
+            f"`mires {PROJECT_COMMAND} <action>` syncs a single project with a git repository "
+            f"instead of installing the catalog. `mires {PROJECT_SYNC_ALIAS}` is short for "
+            f"`mires {PROJECT_COMMAND} sync`. Run `mires {PROJECT_COMMAND} --help` for its options."
+        ),
     )
     parser.add_argument(
         "command",

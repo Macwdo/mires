@@ -26,7 +26,7 @@ Every install is idempotent, and re-running after dropping an entry from `state.
 | `rules/<slug>.md` | Standing rules that apply across work. |
 | `mcps/<slug>/mcp.json` | MCP server configuration. |
 | `hooks/<slug>/hooks.json` | Hook definitions and their scripts. |
-| `src/mires/` | The `mires` CLI: state parser, runtime adapters, scripts, and tests. |
+| `src/mires/` | The `mires` CLI: state parser, project sync, runtime adapters, scripts, and tests. |
 
 Adding a runtime means adding one adapter under `src/mires/compatibility/` and registering it in `targets.py`. The CLI has no per-runtime branches.
 
@@ -68,12 +68,57 @@ uv run mires install --dry-run                           # preview without writi
 
 `--target` accepts `codex`, `cursor`, `claude`, `opencode`, or `all`, and defaults to `all`. Validation runs before every check and install, so a broken catalog fails before anything is written.
 
+Project configuration is a separate command group. See [Projects](#projects). `mires project-sync` is short for `mires project sync`.
+
 Two more checks cover the repository as a whole:
 
 ```bash
 uv run python -m mires.scripts.verify_agent_first_surface
 uv run pytest
 ```
+
+## Projects
+
+A project is any directory with `.mires/state.yml`. That file is the only list of what syncs: catalog entries the project keeps under `.mires/`, plus `project.include` for paths the tools already use, often ignored by the project's own git repository. Source code never travels. The machine-wide catalog and `mires install` are unchanged.
+
+The sync repository is ordinary git. Mires keeps a clone under `~/.mires/sync/` and reads and writes `projects/<slug>/`, mirroring project-relative paths exactly. Private or public is the repository's own setting; any URL works.
+
+```yaml
+version: 1
+
+project:
+  name: Project X
+  slug: project-x
+  remote:
+    repo: git@github.com:you/your-repo.git   # or MIRES_SYNC_REPO, or ~/.mires/config.yml
+    branch: main
+    prefix: projects
+  include:
+    - .cursor/skills/internal-billing
+    - .claude/agents/reviewer.md
+    - AGENTS.md
+
+skills:
+  - name: Internal Billing
+    slug: internal-billing
+    description: "Rules this project keeps out of its own repository."
+```
+
+`include` must be a path inside the project. Absolute paths, `..`, `.git`, and `.mires` are rejected.
+
+```bash
+uv run mires project init [--slug x] [--repo URL]   # create .mires/state.yml here
+uv run mires project list                           # projects already in the sync repository
+uv run mires project status                         # local vs the repository
+uv run mires project sync  [--slug x] [--pull|--push] [--dry-run]
+uv run mires project pull  [--slug x] [--dry-run]
+uv run mires project push  [--slug x] [--dry-run] [-m MSG]
+uv run mires project-sync  ...                      # same as `mires project sync`
+```
+
+`sync` copies toward the side that is missing. When both sides exist, it copies the side that moved since the last sync. If both moved, it stops and asks for `--pull` or `--push`. `--pull` and `--push` overwrite that side completely for the declared payload.
+
+A first `mires project-sync --slug project-x` in an empty directory clones the sync repository and writes the payload here. Push refuses files that look like credentials (`.env`, `*.pem`, `id_rsa*`, `credentials.json`) unless you pass `--allow-secrets`. Git that is not a fast-forward fails with the path of the clone so you can resolve it there.
 
 ## What Lands Where
 

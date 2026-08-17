@@ -25,7 +25,11 @@ def state_path(root: Path) -> Path:
 
 
 def load_state(root: Path) -> MiresState:
-    path = state_path(root)
+    return read_state(state_path(root), MiresState)
+
+
+def read_state[StateT: MiresState](path: Path, model: type[StateT]) -> StateT:
+    """Parse a state definition into `model`, which may extend the catalog schema."""
     if not path.exists():
         raise StateFileError(path, (ValidationMessage(path, "missing state definition"),))
 
@@ -40,7 +44,7 @@ def load_state(root: Path) -> MiresState:
         raise StateFileError(path, (ValidationMessage(path, "state definition must be a mapping"),))
 
     try:
-        return MiresState.model_validate(raw)
+        return model.model_validate(raw)
     except ValidationError as exc:
         raise StateFileError(path, _schema_messages(path, exc)) from exc
 
