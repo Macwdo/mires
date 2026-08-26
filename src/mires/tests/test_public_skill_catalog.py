@@ -8,13 +8,14 @@ from mires.frontmatter import read_frontmatter
 from mires.state import load_state
 
 ROOT = Path(__file__).resolve().parents[3]
-PUBLIC_SKILLS = {"mires", "mires-python", "mires-django", "mires-react", "mires-typescript"}
-HANDBOOK_COUNTS = {"mires-django": 121, "mires-react": 41}
 
 
 class PublicSkillCatalogTests(unittest.TestCase):
     def test_public_skills_are_self_contained_packages(self) -> None:
-        for name in sorted(PUBLIC_SKILLS):
+        state = load_state(ROOT)
+        public_skills = {skill.slug for skill in state.skills if skill.visibility == "public"}
+
+        for name in sorted(public_skills):
             with self.subTest(name=name):
                 package = ROOT / "skills" / name
                 skill_path = package / "SKILL.md"
@@ -24,37 +25,89 @@ class PublicSkillCatalogTests(unittest.TestCase):
                 self.assertEqual(read_frontmatter(skill_path)["name"], name)
                 self.assertTrue(metadata_path.exists())
                 self.assertIn(f"${name}", metadata_path.read_text())
-                for relative in re.findall(r"`(references/[^`]+\.md)`", text):
-                    self.assertTrue((package / relative).exists(), relative)
+                self.assertFalse((package / "references").exists())
+                self.assertIn("## Snippet-Driven Implementation", text)
+                self.assertRegex(text, r"## Snippet-Driven Implementation\n\nAlways ")
+                self.assertRegex(text, r"```[a-zA-Z0-9_-]*\n")
 
-    def test_state_marks_exactly_the_intended_skills_public(self) -> None:
+    def test_catalog_exposes_the_intended_granular_skills(self) -> None:
         state = load_state(ROOT)
         declared_public = {skill.slug for skill in state.skills if skill.visibility == "public"}
 
-        self.assertEqual(declared_public, PUBLIC_SKILLS)
+        self.assertEqual(
+            declared_public,
+            {
+                "mires",
+                "mires-python",
+                "mires-python-django",
+                "mires-python-langchain",
+                "mires-react",
+                "mires-next",
+                "mires-typescript",
+            },
+        )
 
-    def test_every_topic_is_a_rule_document_routed_by_its_domain_skill(self) -> None:
-        for name in sorted(PUBLIC_SKILLS):
-            references = ROOT / "skills" / name / "references"
-            routed = (ROOT / "skills" / name / "SKILL.md").read_text()
-            topics = [d for d in sorted(references.iterdir()) if d.is_dir() and d.name != "handbook"]
+    def test_cross_skill_references_resolve_to_declared_skills(self) -> None:
+        state = load_state(ROOT)
+        declared = {skill.slug for skill in state.skills}
 
-            self.assertTrue(topics, f"{name} aggregates no topic")
-            for topic in topics:
-                with self.subTest(skill=name, topic=topic.name):
-                    self.assertTrue((topic / "rules.md").exists())
-                    self.assertIn(f"references/{topic.name}/rules.md", routed)
+        for skill in state.skills:
+            text = (ROOT / "skills" / skill.slug / "SKILL.md").read_text()
+            referenced = set(re.findall(r"\$(mires(?:-[a-z0-9]+)*)", text))
+            with self.subTest(skill=skill.slug):
+                self.assertTrue(referenced <= declared, referenced - declared)
 
-    def test_merged_handbooks_exclude_generated_content(self) -> None:
-        for name, expected_count in HANDBOOK_COUNTS.items():
-            with self.subTest(name=name):
-                handbook = ROOT / "skills" / name / "references" / "handbook"
-                markdown = list(handbook.rglob("*.md"))
+    def test_django_skill_has_connected_relational_drf_snippets(self) -> None:
+        text = (ROOT / "skills" / "mires-python-django" / "SKILL.md").read_text()
 
-                self.assertEqual(len(markdown), expected_count)
-                self.assertFalse(any("graphify-out" in path.parts for path in handbook.rglob("*")))
-                self.assertFalse((handbook / "AGENTS.md").exists())
-                self.assertTrue((handbook / "maintainer-instructions.md").exists())
+        required_shapes = {
+            "models.OneToOneField",
+            "models.ForeignKey",
+            '"customer_profile": {',
+            '"customer_profile_id": 42',
+            'source="customer_profile"',
+            "class ContextPrimaryKeyRelatedField(",
+            "Generic[_ModelT]",
+            "ContextQueryset = Callable[[Mapping[str, Any]], QuerySet[_ModelT]]",
+            "def get_queryset(self) -> QuerySet[_ModelT] | None",
+            "queryset=billing_profiles_for_context",
+            "class InvoiceWriteSerializer(serializers.ModelSerializer)",
+            "Provide exactly one of customer_profile or customer_profile_id.",
+            "class CustomerReadSerializer(serializers.ModelSerializer)",
+            "class CustomerCreateSerializer(serializers.ModelSerializer)",
+            "AddressSerializer(many=True",
+            "@transaction.atomic",
+            "class CustomerViewSet(viewsets.ModelViewSet)",
+            '.select_related("profile")',
+            '.prefetch_related("addresses")',
+            'router.register("customers", CustomerViewSet, basename="customer")',
+        }
+
+        missing = {shape for shape in required_shapes if shape not in text}
+        self.assertFalse(missing, missing)
+        self.assertNotIn("class InvoiceByProfileIdSerializer", text)
+        self.assertNotIn("UserScopedPrimaryKeyRelatedField", text)
+        self.assertNotIn('user_lookup="owner"', text)
+
+    def test_python_skills_share_the_uv_ruff_ty_toolchain(self) -> None:
+        required = {
+            "uv sync",
+            "uv run ruff format --check",
+            "uv run ruff check",
+            "uv run ty check",
+            "uv run pytest",
+        }
+
+        for slug in ("mires-python", "mires-python-django", "mires-python-langchain"):
+            text = (ROOT / "skills" / slug / "SKILL.md").read_text()
+            with self.subTest(skill=slug):
+                missing = {command for command in required if command not in text}
+                self.assertFalse(missing, missing)
+
+        pyproject = (ROOT / "pyproject.toml").read_text()
+        self.assertIn('"ty>=', pyproject)
+        self.assertIn("[tool.ty.src]", pyproject)
+        self.assertEqual((ROOT / ".python-version").read_text().strip(), "3.14")
 
 
 if __name__ == "__main__":

@@ -100,9 +100,7 @@ class SyncReport:
         return self.source if self.direction == PULL else self.destination
 
     def summary(self) -> str:
-        return (
-            f"{len(self.written)} written, {len(self.unchanged)} unchanged, {len(self.removed)} removed"
-        )
+        return f"{len(self.written)} written, {len(self.unchanged)} unchanged, {len(self.removed)} removed"
 
 
 @dataclass

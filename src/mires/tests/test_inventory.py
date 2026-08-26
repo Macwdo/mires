@@ -12,10 +12,21 @@ ROOT = Path(__file__).resolve().parents[3]
 
 STATE = """
 version: 1
+secrets:
+  - name: Example API Key
+    slug: example-api-key
+    description: "An example environment-backed credential."
+    source:
+      env: EXAMPLE_API_KEY
 mcps:
   - name: Example
     slug: example
     description: "An example server."
+    secrets:
+      - secret: example-api-key
+        env: EXAMPLE_API_KEY
+        targets:
+          - codex
 skills: []
 subagents: []
 rules:
@@ -58,6 +69,8 @@ class InventoryTests(unittest.TestCase):
 
             self.assertEqual([rule.name for rule in inventory.rules], ["example-rule"])
             self.assertEqual([mcp.name for mcp in inventory.mcps], ["example"])
+            self.assertEqual([secret.name for secret in inventory.secrets], ["example-api-key"])
+            self.assertEqual(inventory.mcps[0].secrets[0].secret, "example-api-key")
             self.assertEqual([hook.name for hook in inventory.hooks], ["example-hook"])
             self.assertEqual(inventory.mcps[0].server, {"command": "run-server", "args": ["--flag"]})
             self.assertEqual(tuple(inventory.hooks[0].events), ("afterFileEdit",))

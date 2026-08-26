@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TypedDict, Unpack
 
 from mires.project.loader import (
     ProjectNotFoundError,
@@ -15,6 +16,12 @@ from mires.project.models import ProjectState, normalize_include
 from mires.state.loader import StateFileError
 
 SKILL_SECTION = '\nskills:\n  - name: Billing\n    slug: billing\n    description: "Billing"\n'
+
+
+class ProjectDocumentOptions(TypedDict, total=False):
+    include: tuple[str, ...]
+    repo: str | None
+    sections: str
 
 
 def project_document(
@@ -34,10 +41,10 @@ def project_document(
     return f"{document}{sections}" if sections else document
 
 
-def write_project(root: Path, slug: str = "demo", **options: object) -> Path:
+def write_project(root: Path, slug: str = "demo", **options: Unpack[ProjectDocumentOptions]) -> Path:
     path = project_state_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(project_document(slug, **options))  # type: ignore[arg-type]
+    path.write_text(project_document(slug, **options))
     return path
 
 

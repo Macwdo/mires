@@ -22,8 +22,6 @@ ROOT = Path(__file__).resolve().parents[3]
 SRC = ROOT / "src" / "mires"
 ARCHIVED_CHANGES = ROOT / "openspec" / "changes" / "archive"
 CHANGE_WORKSPACE = ROOT / "openspec" / "changes"
-HANDBOOKS = tuple(ROOT.glob("skills/*/references/handbook"))
-
 IGNORED_PARTS = {".git", ".tmp", ".venv", "__pycache__", ".ruff_cache", ".pytest_cache"}
 LOCAL_RUNTIME_PARTS = {".codex", ".opencode"}
 SCANNED_SUFFIXES = {"", ".md", ".yaml", ".yml", ".py", ".js", ".json", ".toml", ".sh"}
@@ -40,7 +38,7 @@ LEGACY_GRANULAR_PATTERNS = [
     re.compile(pattern)
     for pattern in [
         r"\bmacwdo-(?:agent|backend|explorer|planner|project|python|react|researcher|reviewer|tester|typescript)\b",
-        r"\bmires-(?:agent-testing|backend-orchestrator|python-|react-query|react-hook-form|typescript-|zod)\b",
+        r"\bmires-(?:agent-testing|backend-orchestrator|react-query|react-hook-form|typescript-|zod)\b",
         r"\bopenspec-(?:apply-change|archive-change|explore|propose)\b",
         r"\.ai/(?:agents|skills)",
     ]
@@ -91,9 +89,7 @@ def is_ignored(path: Path) -> bool:
 
 def active_files() -> list[Path]:
     return [
-        path
-        for path in ROOT.rglob("*")
-        if path.is_file() and path.suffix in SCANNED_SUFFIXES and not is_ignored(path)
+        path for path in ROOT.rglob("*") if path.is_file() and path.suffix in SCANNED_SUFFIXES and not is_ignored(path)
     ]
 
 
@@ -112,8 +108,6 @@ def check_references_exist(files: list[Path]) -> None:
     """Every inline `catalog/path` written in backticks must resolve to a real file."""
     for path in files:
         if path.suffix not in DOCUMENTED_SUFFIXES:
-            continue
-        if any(handbook in path.parents for handbook in HANDBOOKS):
             continue
         for match in REFERENCE_PATTERN.findall(path.read_text()):
             if any(token in match for token in ("<", ">", "*")):

@@ -71,9 +71,7 @@ class CursorInstallTests(unittest.TestCase):
             home = Path(temp_dir) / ".cursor"
             home.mkdir(parents=True)
             (home / "mcp.json").write_text(json.dumps({"mcpServers": {"mine": {"command": "own-server"}}}))
-            (home / "hooks.json").write_text(
-                json.dumps({"version": 1, "hooks": {"stop": [{"command": "./mine.sh"}]}})
-            )
+            (home / "hooks.json").write_text(json.dumps({"version": 1, "hooks": {"stop": [{"command": "./mine.sh"}]}}))
             install(home)
 
             servers = json.loads((home / "mcp.json").read_text())["mcpServers"]
@@ -81,6 +79,7 @@ class CursorInstallTests(unittest.TestCase):
 
             self.assertEqual(servers["mine"], {"command": "own-server"})
             self.assertIn("context7", servers)
+            self.assertNotIn("env", servers["context7"])
             self.assertEqual(hooks["stop"], [{"command": "./mine.sh"}])
 
     def test_reinstalling_a_narrower_profile_removes_what_it_dropped(self) -> None:

@@ -38,7 +38,7 @@ class ClaudeInstallTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((home / "agents" / "planner.md").exists())
-            self.assertTrue((home / "skills" / "mires-django" / "SKILL.md").exists())
+            self.assertTrue((home / "skills" / "mires-python-django" / "SKILL.md").exists())
             self.assertTrue((home / "CLAUDE.md").exists())
             self.assertTrue((home / "settings.json").exists())
             self.assertTrue((home.parent / ".claude.json").exists())
@@ -88,6 +88,10 @@ class ClaudeInstallTests(unittest.TestCase):
             self.assertEqual(document["otherState"], 42)
             self.assertEqual(document["mcpServers"]["mine"], {"command": "own"})
             self.assertIn("context7", document["mcpServers"])
+            self.assertEqual(
+                document["mcpServers"]["context7"]["env"],
+                {"CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"},
+            )
 
     def test_reinstalling_a_narrower_profile_removes_what_it_dropped(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -195,9 +195,7 @@ def render_agent_instructions(
 ) -> str:
     bundle_path = str(agent_bundle_path(opencode_home, agent))
     skill_lines = (
-        "\n".join(f"- {skill.name}" for skill in skills)
-        if skills
-        else "- No Mires skills are required for this agent."
+        "\n".join(f"- {skill.name}" for skill in skills) if skills else "- No Mires skills are required for this agent."
     )
     return f"""
 You are the Mires {agent.name} agent.

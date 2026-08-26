@@ -161,6 +161,58 @@ class StateSchemaTests(unittest.TestCase):
         self.assertEqual(state.config.profiles[0].using.skills, ["python"])
         self.assertEqual(state.config.profiles[0].using.subagents, ["explorer"])
 
+    def test_secret_declaration_accepts_only_an_environment_source(self) -> None:
+        raw = _as_mapping(MINIMAL_STATE)
+        raw["secrets"] = [_secret_entry()]
+
+        state = MiresState.model_validate(raw)
+
+        self.assertEqual(state.secrets[0].source.env, "EXAMPLE_API_KEY")
+        self.assertEqual(state.secrets[0].slug, "example-api-key")
+
+    def test_secret_declaration_rejects_a_literal_value(self) -> None:
+        raw = _as_mapping(MINIMAL_STATE)
+        secret = _secret_entry()
+        source = secret["source"]
+        self.assertIsInstance(source, dict)
+        assert isinstance(source, dict)
+        source["value"] = "must-not-be-accepted"
+        raw["secrets"] = [secret]
+
+        with self.assertRaises(ValueError):
+            MiresState.model_validate(raw)
+
+    def test_secret_declaration_rejects_consumer_scopes(self) -> None:
+        raw = _as_mapping(MINIMAL_STATE)
+        secret = _secret_entry()
+        secret["scopes"] = {"mcps": ["example"]}
+        raw["secrets"] = [secret]
+
+        with self.assertRaises(ValueError):
+            MiresState.model_validate(raw)
+
+    def test_mcp_rejects_overlapping_secret_bindings(self) -> None:
+        raw = _as_mapping(MINIMAL_STATE)
+        first = _secret_entry()
+        second = _secret_entry()
+        second["name"] = "Other API Key"
+        second["slug"] = "other-api-key"
+        raw["secrets"] = [first, second]
+        mcp = _mcp_entry()
+        secret_refs = mcp["secrets"]
+        assert isinstance(secret_refs, list)
+        secret_refs.append(
+            {
+                "secret": "other-api-key",
+                "env": "EXAMPLE_API_KEY",
+                "targets": ["codex", "claude"],
+            }
+        )
+        raw["mcps"] = [mcp]
+
+        with self.assertRaisesRegex(ValueError, "duplicate secret binding"):
+            MiresState.model_validate(raw)
+
 
 class StateIntegrityTests(unittest.TestCase):
     def test_profile_referencing_an_unknown_slug_is_reported(self) -> None:
@@ -172,6 +224,33 @@ class StateIntegrityTests(unittest.TestCase):
             self.assertIn(
                 "profile 'personal' references unknown skills entry: ghost",
                 fixture.errors(),
+            )
+
+    def test_mcp_referencing_an_unknown_secret_is_reported(self) -> None:
+        with StateFixture() as fixture:
+            state = MiresState.model_validate({**_as_mapping(MINIMAL_STATE), "mcps": [_mcp_entry("ghost")]})
+
+            errors = [message.message for message in validate_state(fixture.root, state)]
+
+            self.assertIn("MCP 'example' references unknown secret: ghost", errors)
+
+    def test_mcp_secret_binding_referencing_an_unknown_target_is_reported(self) -> None:
+        with StateFixture() as fixture:
+            mcp = _mcp_entry()
+            secret_refs = mcp["secrets"]
+            assert isinstance(secret_refs, list)
+            secret_ref = secret_refs[0]
+            assert isinstance(secret_ref, dict)
+            secret_ref["targets"] = ["unknown-runtime"]
+            state = MiresState.model_validate(
+                {**_as_mapping(MINIMAL_STATE), "secrets": [_secret_entry()], "mcps": [mcp]}
+            )
+
+            errors = [message.message for message in validate_state(fixture.root, state)]
+
+            self.assertIn(
+                "MCP 'example' secret 'example-api-key' references unknown target: unknown-runtime",
+                errors,
             )
 
     def test_declared_entry_without_a_directory_is_reported(self) -> None:
@@ -225,6 +304,30 @@ def _as_mapping(state_text: str) -> dict[str, object]:
     import yaml
 
     return yaml.safe_load(textwrap.dedent(state_text).lstrip())
+
+
+def _secret_entry() -> dict[str, object]:
+    return {
+        "name": "Example API Key",
+        "slug": "example-api-key",
+        "description": "Example environment-backed credential.",
+        "source": {"env": "EXAMPLE_API_KEY"},
+    }
+
+
+def _mcp_entry(secret: str = "example-api-key") -> dict[str, object]:
+    return {
+        "name": "Example",
+        "slug": "example",
+        "description": "Example MCP.",
+        "secrets": [
+            {
+                "secret": secret,
+                "env": "EXAMPLE_API_KEY",
+                "targets": ["codex", "claude"],
+            }
+        ],
+    }
 
 
 if __name__ == "__main__":

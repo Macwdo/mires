@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from mires.compatibility.targets import TARGETS
 from mires.frontmatter import FrontMatterError, read_frontmatter
 from mires.messages import ValidationMessage
 from mires.state.models import (
@@ -30,6 +31,7 @@ def validate_state(
     root = root.resolve()
     errors: list[ValidationMessage] = []
     errors.extend(_check_profile_references(root, state))
+    errors.extend(_check_mcp_secret_references(root, state))
     for section in SECTIONS:
         errors.extend(_check_entries_exist(root, state, section))
         errors.extend(_check_orphans(root, state, section))
@@ -50,6 +52,30 @@ def _check_profile_references(root: Path, state: MiresState) -> list[ValidationM
                         ValidationMessage(
                             path,
                             f"profile '{profile.slug}' references unknown {section.field} entry: {slug}",
+                        )
+                    )
+    return errors
+
+
+def _check_mcp_secret_references(root: Path, state: MiresState) -> list[ValidationMessage]:
+    path = root / "state.yml"
+    known_secrets = state.secret_slugs()
+    errors: list[ValidationMessage] = []
+    for mcp in state.mcps:
+        for secret_ref in mcp.secrets:
+            if secret_ref.secret not in known_secrets:
+                errors.append(
+                    ValidationMessage(
+                        path,
+                        f"MCP '{mcp.slug}' references unknown secret: {secret_ref.secret}",
+                    )
+                )
+            for target in secret_ref.targets:
+                if target not in TARGETS:
+                    errors.append(
+                        ValidationMessage(
+                            path,
+                            f"MCP '{mcp.slug}' secret '{secret_ref.secret}' references unknown target: {target}",
                         )
                     )
     return errors

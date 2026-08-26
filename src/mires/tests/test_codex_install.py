@@ -181,6 +181,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             parsed_config = tomllib.loads((codex_home / "config.toml").read_text())
             self.assertEqual(parsed_config["agents"]["explorer"]["config_file"], "agents/explorer.toml")
             self.assertIn("context7", parsed_config["mcp_servers"])
+            self.assertEqual(parsed_config["mcp_servers"]["context7"]["env_vars"], ["CONTEXT7_API_KEY"])
             parsed_agent = tomllib.loads((codex_home / "agents" / "explorer.toml").read_text())
             skill_paths = [entry["path"] for entry in parsed_agent["skills"]["config"]]
             self.assertTrue(all(Path(path).is_absolute() for path in skill_paths))
@@ -199,7 +200,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             narrowed = filter_inventory(
                 inventory,
                 agent_names={"explorer"},
-                skill_names={"mires", "mires-python", "mires-django"},
+                skill_names={"mires", "mires-python", "mires-python-django"},
                 rule_names=set(),
                 mcp_names=set(),
                 hook_names=set(),
@@ -229,7 +230,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             result = install(codex_home, "--profile", "tenant-evaluation")
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((codex_home / "skills" / "mires-django").exists())
+            self.assertTrue((codex_home / "skills" / "mires-python-django").exists())
             self.assertFalse((codex_home / "skills" / "mires-react").exists())
             self.assertIn("No Secrets", (codex_home / "AGENTS.md").read_text())
             self.assertNotIn("Commit Style", (codex_home / "AGENTS.md").read_text())

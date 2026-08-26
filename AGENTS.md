@@ -22,9 +22,9 @@ Rules that apply to both:
 
 Mires installs into Codex, Cursor, Claude Code, and OpenCode. Each is an adapter in `src/mires/compatibility/` registered in `targets.py`; the CLI dispatches through that registry and has no per-runtime branches. Shared write primitives live in `writing.py` and shared renderers in `rendering.py`, so an adapter only holds what is genuinely specific to its runtime.
 
-Skills use `SKILL.md` with YAML front matter (`name`, `description`) and keep detailed material under `references/`. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
+Skills keep all actionable guidance in one self-contained `SKILL.md` with YAML front matter (`name`, `description`); `agents/openai.yaml` is runtime metadata, not an instruction source. Every public `SKILL.md` must include `## Snippet-Driven Implementation` and concrete code fences. Generated code starts from the closest relevant snippet, adapted to the target repository's conventions. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
 
-Skills are aggregated by domain: `mires`, `mires-python`, `mires-django`, `mires-react`, `mires-typescript`. Per-library and per-practice guidance is a topic inside a domain, at `references/<topic>/rules.md` with its focused documents beside it, routed from the domain's `SKILL.md`. Add a topic rather than a skill unless the subject fits none of the five domains.
+Skills are granular, declared catalog entries. Shared Python backend guidance belongs to `mires-python`; Django and the LangChain ecosystem are explicit companions at `mires-python-django` and `mires-python-langchain`. React and Next.js are separate skills at `mires-react` and `mires-next`. Skills reference one another by `$slug`, never through nested instruction files.
 
 Keep directory names lowercase kebab-case.
 
@@ -35,16 +35,19 @@ uv sync                                                   # install the toolchai
 uv run mires validate                                     # catalog definition against the files on disk
 uv run mires check                                        # every runtime target
 uv run python -m mires.scripts.verify_agent_first_surface # repository-wide surface checks
+uv run ruff format --check src                            # Python formatting
+uv run ruff check src                                     # Python linting
+uv run ty check                                           # Python typing
 uv run pytest                                             # the test suite
 ```
 
-Run all four before committing a change that touches the catalog or the CLI.
+Run all listed checks before committing a change that touches the catalog or the CLI.
 
 ## Coding Style & Naming Conventions
 
 Write documentation in clear, direct Markdown. Keep `AGENT.md` and `SKILL.md` action-oriented: when to use it, what workflow to follow, which references to load. Use two-space YAML indentation and keep examples small and specific.
 
-Python is formatted and linted with Ruff at a 120-character line length (`uv run ruff check src`). Prefer explicit typing and small functions.
+Python uses uv for the environment and commands, Ruff for formatting and linting at a 120-character line length, and `ty` for static type checking. Prefer explicit typing and small functions. Run `uv run ruff format --check src`, `uv run ruff check src`, and `uv run ty check` before handoff.
 
 ## AI Implementation Gate
 

@@ -11,8 +11,10 @@ config:
         skills:
           - mires
           - mires-python
-          - mires-django
+          - mires-python-django
+          - mires-python-langchain
           - mires-react
+          - mires-next
           - mires-typescript
         subagents:
           - explorer
@@ -32,20 +34,34 @@ config:
         skills:
           - mires
           - mires-python
-          - mires-django
+          - mires-python-django
         subagents:
           - explorer
           - planner
         rules:
           - no-secrets
 
+secrets:
+  - name: Context7 API Key
+    slug: context7-api-key
+    description: "Environment-backed credential for authenticated Context7 access."
+    source:
+      env: CONTEXT7_API_KEY
+
 mcps:
   - name: Context7
     slug: context7
     description: "Current library, framework, and SDK documentation instead of stale training data."
+    secrets:
+      - secret: context7-api-key
+        env: CONTEXT7_API_KEY
+        targets:
+          - codex
+          - claude
+          - opencode
 
-# Skills are aggregated by domain. Per-topic guidance lives inside a skill as
-# references/<topic>/rules.md plus its focused reference documents.
+# Every public skill is a self-contained instruction package. Its complete
+# guidance lives in SKILL.md; relationships point to other declared skill slugs.
 skills:
   - name: Mires
     slug: mires
@@ -55,17 +71,27 @@ skills:
   - name: Mires Python
     slug: mires-python
     visibility: public
-    description: "Python backend standards covering modules, service layers, FastAPI, SQLAlchemy, Postgres, Celery, and LangGraph."
+    description: "Typed Python with uv, Ruff, ty, modules, services, FastAPI, SQLAlchemy, Postgres, Celery, configuration, and tests."
 
-  - name: Mires Django
-    slug: mires-django
+  - name: Mires Python Django
+    slug: mires-python-django
     visibility: public
-    description: "Opinionated Django and DRF standards from an executable Markdown handbook, plus the condensed Django implementation rules."
+    description: "Typed Django and DRF with uv, Ruff, ty, models, services, selectors, APIs, security, testing, and operations."
+
+  - name: Mires Python LangChain
+    slug: mires-python-langchain
+    visibility: public
+    description: "Typed LangChain, LangGraph, Deep Agents, LLM, loader, retrieval, persistence, and agent testing standards."
 
   - name: Mires React
     slug: mires-react
     visibility: public
-    description: "Opinionated React and Next.js standards from an executable Markdown handbook, plus the condensed React, Next.js, and frontend rules."
+    description: "React component composition, state ownership, forms, accessibility, performance, security, and testing standards."
+
+  - name: Mires Next
+    slug: mires-next
+    visibility: public
+    description: "Next.js App Router, Server and Client Component, data fetching, caching, mutation, security, and deployment standards."
 
   - name: Mires TypeScript
     slug: mires-typescript

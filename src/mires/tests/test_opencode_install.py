@@ -100,7 +100,8 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             self.assertTrue((opencode_home / "mires" / "agents" / "planner" / "AGENT.md").exists())
             self.assertTrue((opencode_home / "skills" / "mires-python" / "SKILL.md").exists())
             self.assertTrue((opencode_home / "AGENTS.md").exists())
-            self.assertIn("context7", json.loads((opencode_home / "opencode.json").read_text())["mcp"])
+            context7 = json.loads((opencode_home / "opencode.json").read_text())["mcp"]["context7"]
+            self.assertEqual(context7["environment"], {"CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"})
             self.assertIn("has no runtime for: hooks", result.stdout)
 
     def test_profile_narrows_the_installed_skill_packages(self) -> None:
@@ -110,7 +111,7 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             result = install(opencode_home, "--profile", "tenant-evaluation")
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((opencode_home / "skills" / "mires-django").exists())
+            self.assertTrue((opencode_home / "skills" / "mires-python-django").exists())
             self.assertFalse((opencode_home / "skills" / "mires-react").exists())
             rules = (opencode_home / "AGENTS.md").read_text()
             self.assertIn("No Secrets", rules)

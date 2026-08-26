@@ -16,6 +16,7 @@ mires = "mires.cli:main"
 dev = [
     "pytest>=8.3",
     "ruff>=0.6",
+    "ty>=0.0.74",
 ]
 
 [build-system]
@@ -44,3 +45,6 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ty.src]
+include = ["src"]

@@ -21,7 +21,7 @@ Every install is idempotent, and re-running after dropping an entry from `state.
 | Path | Contents |
 | --- | --- |
 | `state.yml` | The catalog definition and the profiles that select from it. |
-| `skills/<slug>/SKILL.md` | Domain skill routing, with detailed material under `references/`. |
+| `skills/<slug>/SKILL.md` | The skill's complete, self-contained guidance. |
 | `subagents/<slug>/AGENT.md` | Subagent behavior, with runtime metadata in `agents/openai.yaml`. |
 | `rules/<slug>.md` | Standing rules that apply across work. |
 | `mcps/<slug>/mcp.json` | MCP server configuration. |
@@ -46,12 +46,38 @@ config:
       description: "Django backend work: the core skill plus the Django and Python domains."
       using:
         mcps: [context7]
-        skills: [mires, mires-python, mires-django]
+        skills: [mires, mires-python, mires-python-django]
         subagents: [explorer, planner]
         rules: [no-secrets]
 ```
 
 `using` also accepts a list of mappings, which the parser merges into one.
+
+Secrets are independent declarations, never stored values. A secret knows only its identity and environment source.
+Consumers reference it from their own catalog entry:
+
+```yaml
+secrets:
+  - name: Context7 API Key
+    slug: context7-api-key
+    description: "Environment-backed credential for authenticated Context7 access."
+    source:
+      env: CONTEXT7_API_KEY
+
+mcps:
+  - name: Context7
+    slug: context7
+    description: "Current library documentation."
+    secrets:
+      - secret: context7-api-key
+        env: CONTEXT7_API_KEY
+        targets: [codex, claude, opencode]
+```
+
+The dependency is unidirectional: the MCP references the secret; the secret never names or scopes itself to an MCP.
+Profiles do not repeat secret slugs. Selecting an MCP follows its references and selects only the secrets it consumes.
+The schema deliberately rejects literal secret values. Each adapter renders a runtime-native environment reference;
+it never reads, logs, copies, or records the credential in the install manifest.
 
 ## Commands
 
@@ -74,8 +100,13 @@ Two more checks cover the repository as a whole:
 
 ```bash
 uv run python -m mires.scripts.verify_agent_first_surface
+uv run ruff format --check src
+uv run ruff check src
+uv run ty check
 uv run pytest
 ```
+
+Python tooling is standardized on uv, Ruff, and `ty`. uv owns the environment and lockfile, Ruff owns formatting and linting, and `ty` owns static type checking.
 
 ## Projects
 
@@ -163,30 +194,34 @@ What each install wrote is recorded in `<home>/mires/install-manifest.json`, whi
 
 ## Skills
 
-Skills are aggregated by domain, not by library. There is no per-library skill: a topic such as FastAPI, Celery, or Next.js is a rule document inside the domain that owns it.
+Each catalog skill is a real, independently installable package. Its complete guidance lives in `SKILL.md`; related skills reference each other by `$slug`.
 
-| Skill | Domain | Topics |
-| --- | --- | --- |
-| `mires` | Personal and cross-cutting | Preferences, operating model, project conventions, testing, review, OpenSpec |
-| `mires-python` | Python outside Django | Python, backend services, FastAPI, SQLAlchemy, Postgres, Celery, LangGraph |
-| `mires-django` | Django and DRF | Django handbook, Django implementation rules |
-| `mires-react` | React and Next.js | React and Next.js handbook, React, Next.js, frontend rules |
-| `mires-typescript` | TypeScript | Type ownership, shared contracts, API integration |
+Every public skill is snippet-driven. Before generating implementation code, the agent selects the closest relevant snippet, compares it with the target repository, and adapts its ownership, typing, dependency, error, and test shape to local conventions. Snippets are mandatory reference implementations, not copy-paste templates.
 
-Each `SKILL.md` routes by boundary. A topic lives at `references/<topic>/rules.md` with its focused reference documents beside it, so an agent loads only the rules for the boundary it is touching.
+| Skill | Owns |
+| --- | --- |
+| `mires` | Personal operating model, repository discovery, testing, review, and companion routing |
+| `mires-python` | Typed Python with uv, Ruff, ty, backend services, FastAPI, SQLAlchemy, Postgres, Celery, and tests |
+| `mires-python-django` | Typed Django and DRF models, services, APIs, security, tests, and operations |
+| `mires-python-langchain` | Typed LangChain, LangGraph, Deep Agents, LLMs, loaders, retrieval, persistence, and tests |
+| `mires-react` | React composition, state ownership, forms, accessibility, performance, and tests |
+| `mires-next` | Next.js App Router, server/client boundaries, fetching, caching, mutations, security, and deployment |
+| `mires-typescript` | Type ownership, shared contracts, runtime validation, and API integration |
 
-All five are marked `public` and are installable on their own:
+All seven are marked `public` and are installable on their own:
 
 ```bash
 bunx skills add Macwdo/mires --list
 bunx skills add Macwdo/mires --skill mires -g -a codex
 bunx skills add Macwdo/mires --skill mires-python -g -a codex
-bunx skills add Macwdo/mires --skill mires-django -g -a codex
+bunx skills add Macwdo/mires --skill mires-python-django -g -a codex
+bunx skills add Macwdo/mires --skill mires-python-langchain -g -a codex
 bunx skills add Macwdo/mires --skill mires-react -g -a codex
+bunx skills add Macwdo/mires --skill mires-next -g -a codex
 bunx skills add Macwdo/mires --skill mires-typescript -g -a codex
 ```
 
-`mires-django` and `mires-react` carry full Markdown handbooks under `references/handbook/`, merged in from the former `django-cookiecutter-standard` and `react-personal-references` repositories. They are first-class content here now: edit the handbook Markdown directly.
+`agents/openai.yaml` remains beside each public skill because the runtimes use it for display metadata and invocation prompts. It is not a second instruction document.
 
 ## Adding A Catalog Entry
 
@@ -195,12 +230,12 @@ bunx skills add Macwdo/mires --skill mires-typescript -g -a codex
 3. Add the slug to every profile that should use it.
 4. Run `uv run mires validate`.
 
-An MCP server is described once, in the shape `mcp.json` already uses (`command`, `args`, `env`, or `url`); each target reshapes it. A hook binds to a canonical event and keeps its scripts beside `hooks.json`.
+An MCP server is described once, in the shape `mcp.json` already uses (`command`, `args`, `env`, or `url`); each target reshapes it. Define environment-backed credentials in top-level `secrets`, then reference them from the consuming MCP entry in `mcps`. Never put literal credentials in either section or in `mcp.json`. A hook binds to a canonical event and keeps its scripts beside `hooks.json`.
 
-## Adding A Topic
+## Adding A Skill
 
-New guidance for a library or a practice is a topic, not a skill. Create `skills/<domain>/references/<topic>/rules.md` with the six standard sections (`## When To Use`, `## Core Rules`, `## Preferred Patterns`, `## Anti-Patterns`, `## Checklist`, `## References Index`), put its detailed documents beside it, and route to it from the domain's `SKILL.md`. Only add a new domain skill when the topic fits none of the existing five.
+Create `skills/<slug>/SKILL.md` with all actionable guidance, a `## Snippet-Driven Implementation` section, and concrete implementation snippets. Add `agents/openai.yaml` for public runtime metadata, declare the slug in `state.yml`, and add it to each profile that should install it. Reference companion skills by `$slug`; do not create nested instruction trees.
 
 ## Security
 
-Do not commit secrets, personal tokens, API keys, or private environment values into any catalog entry, example, or reference. Use placeholders such as `OPENAI_API_KEY`. See `rules/no-secrets.md`.
+Do not commit secrets, personal tokens, API keys, or private environment values into any catalog entry, example, or reference. Top-level `secrets` accepts environment variable names only; consumers own their references and target scopes. Neither form accepts values. See `rules/no-secrets.md`.

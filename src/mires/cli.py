@@ -8,6 +8,7 @@ from pathlib import Path
 from mires.catalog import CatalogNotFoundError, resolve_root
 from mires.compatibility.models import AssetInventory, InstallReport, ValidationMessage
 from mires.compatibility.parsing import filter_inventory, load_inventory
+from mires.compatibility.secrets import bind_secret_references
 from mires.compatibility.targets import ALL_TARGETS, TARGET_SLUGS, TARGETS, Target, resolve_targets
 from mires.project.cli import main as project_main
 from mires.state import MiresState, StateFileError, load_state, validate_state
@@ -60,16 +61,23 @@ def main(argv: list[str] | None = None) -> int:
 
     exit_code = EXIT_OK
     for target in targets:
-        target_errors = target.validate(inventory)
+        try:
+            target_inventory = bind_secret_references(inventory, target.slug)
+        except ValueError as exc:
+            print(f"Compatibility {args.command} failed for target '{target.slug}'.", file=sys.stderr)
+            print(f"- {exc}", file=sys.stderr)
+            exit_code = EXIT_INVALID
+            continue
+        target_errors = target.validate(target_inventory)
         if target_errors:
             report(f"Compatibility {args.command} failed for target '{target.slug}'.", target_errors, root)
             exit_code = EXIT_INVALID
             continue
         if args.command == "install":
-            exit_code = run_install(target, inventory, args) or exit_code
+            exit_code = run_install(target, target_inventory, args) or exit_code
         else:
             print(f"Compatibility check passed for target '{target.slug}'.")
-            print_inventory_summary(inventory)
+            print_inventory_summary(target_inventory)
     return exit_code
 
 
@@ -167,6 +175,7 @@ def print_inventory_summary(inventory: AssetInventory) -> None:
     print(f"Skills: {len(inventory.skills)}")
     print(f"Rules: {len(inventory.rules)}")
     print(f"Mcps: {len(inventory.mcps)}")
+    print(f"Secrets: {len(inventory.secrets)}")
     print(f"Hooks: {len(inventory.hooks)}")
 
 
@@ -179,6 +188,7 @@ def print_state_summary(root: Path, state: MiresState) -> None:
     )
     for field in ("mcps", "skills", "subagents", "rules", "hooks"):
         print(f"{field.capitalize()}: {len(state.entries(field))}")
+    print(f"Secrets: {len(state.secrets)}")
 
 
 def report(headline: str, messages: tuple[ValidationMessage, ...], root: Path) -> int:

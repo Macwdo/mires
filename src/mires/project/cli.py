@@ -217,9 +217,13 @@ def run_sync(args: argparse.Namespace) -> int:
     repo = open_repo(state, args)
 
     forced = PULL if args.pull else PUSH if args.push else None
-    if forced == PULL or (forced is None and state is None):
+    if forced == PULL:
         return pull(root, repo, slug, args)
-    if forced == PUSH or (forced is None and not repo.has_project(slug)):
+    if forced == PUSH:
+        return push(root, repo, slug, args)
+    if state is None:
+        return pull(root, repo, slug, args)
+    if not repo.has_project(slug):
         return push(root, repo, slug, args)
 
     return converge(root, state, repo, slug, args)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires Next"
+  short_description: "Next.js App Router and server-first application standards"
+  default_prompt: "Use $mires-next with $mires-react to apply my Next.js standards to this task."

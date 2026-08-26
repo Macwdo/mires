@@ -5,9 +5,11 @@ from typing import Annotated, Any, Literal, NamedTuple
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+ENV_VAR_PATTERN = r"^[A-Z_][A-Z0-9_]*$"
 
 Slug = Annotated[str, Field(pattern=SLUG_PATTERN, max_length=64)]
 Text = Annotated[str, Field(min_length=1)]
+EnvVar = Annotated[str, Field(pattern=ENV_VAR_PATTERN, max_length=128)]
 
 
 class SectionSpec(NamedTuple):
@@ -51,8 +53,14 @@ class CatalogEntry(StateModel):
     config: dict[str, Any] | None = None
 
 
+class McpSecretRef(StateModel):
+    secret: Slug
+    env: EnvVar
+    targets: Annotated[list[Slug], Field(min_length=1)]
+
+
 class McpEntry(CatalogEntry):
-    pass
+    secrets: list[McpSecretRef] = []
 
 
 class SkillEntry(CatalogEntry):
@@ -69,6 +77,19 @@ class RuleEntry(CatalogEntry):
 
 class HookEntry(CatalogEntry):
     pass
+
+
+class SecretSource(StateModel):
+    env: EnvVar
+
+
+class SecretEntry(StateModel):
+    """A public secret reference whose value remains outside the catalog."""
+
+    name: Text
+    slug: Slug
+    description: Text
+    source: SecretSource
 
 
 class ProfileUsing(StateModel):
@@ -115,11 +136,14 @@ class MiresState(StateModel):
     subagents: list[SubagentEntry] = []
     rules: list[RuleEntry] = []
     hooks: list[HookEntry] = []
+    secrets: list[SecretEntry] = []
 
     @model_validator(mode="after")
     def _reject_duplicate_slugs(self) -> MiresState:
         for section in SECTIONS:
             _reject_duplicates(self.entries(section.field), f"{section.field} slug")
+        _reject_duplicates(self.secrets, "secrets slug")
+        _reject_duplicate_mcp_secret_bindings(self.mcps)
         _reject_duplicates(self.config.profiles, "profile slug")
         return self
 
@@ -134,6 +158,9 @@ class MiresState(StateModel):
 
     def profile_slugs(self) -> list[str]:
         return [profile.slug for profile in self.config.profiles]
+
+    def secret_slugs(self) -> set[str]:
+        return {secret.slug for secret in self.secrets}
 
     def entry_path(self, field: str, entry: CatalogEntry) -> str:
         """Relative path of an entry, defaulting to the section layout when `path` is omitted."""
@@ -151,3 +178,17 @@ def _reject_duplicates(items: list[Any], label: str) -> None:
         if item.slug in seen:
             raise ValueError(f"duplicate {label}: {item.slug}")
         seen.add(item.slug)
+
+
+def _reject_duplicate_mcp_secret_bindings(mcps: list[McpEntry]) -> None:
+    seen: dict[tuple[str, str, str], str] = {}
+    for mcp in mcps:
+        for secret_ref in mcp.secrets:
+            for target in secret_ref.targets:
+                binding = (mcp.slug, secret_ref.env, target)
+                if owner := seen.get(binding):
+                    raise ValueError(
+                        f"duplicate secret binding for {mcp.slug}.{secret_ref.env} on {target}: "
+                        f"{owner}, {secret_ref.secret}"
+                    )
+                seen[binding] = secret_ref.secret

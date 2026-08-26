@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mires Python Django"
+  short_description: "Typed Django and DRF with uv, Ruff, and ty"
+  default_prompt: "Use $mires-python-django with $mires-python to apply my typed Django and DRF standards."

@@ -10,7 +10,9 @@ from mires.compatibility.models import (
     AssetInventory,
     HookAsset,
     McpAsset,
+    McpSecretBinding,
     RuleAsset,
+    SecretAsset,
     SkillAsset,
     ValidationMessage,
 )
@@ -52,6 +54,7 @@ def load_inventory(root: Path, state: MiresState) -> AssetInventory:
         skills=tuple(_load_skills(root, errors)),
         rules=tuple(_load_rules(root, state, errors)),
         mcps=tuple(_load_mcps(root, state, errors)),
+        secrets=tuple(_load_secrets(state)),
         hooks=tuple(_load_hooks(root, state, errors)),
         specs=tuple(_load_specs(root)),
         errors=tuple(errors),
@@ -67,12 +70,15 @@ def filter_inventory(
     hook_names: set[str] | None = None,
 ) -> AssetInventory:
     """Narrow an inventory to the assets a profile selects."""
+    selected_mcps = tuple(mcp for mcp in inventory.mcps if _selected(mcp.name, mcp_names))
+    selected_secret_names = {binding.secret for mcp in selected_mcps for binding in mcp.secrets}
     return AssetInventory(
         root=inventory.root,
         agents=tuple(agent for agent in inventory.agents if agent.name in agent_names),
         skills=tuple(skill for skill in inventory.skills if skill.name in skill_names),
         rules=tuple(rule for rule in inventory.rules if _selected(rule.name, rule_names)),
-        mcps=tuple(mcp for mcp in inventory.mcps if _selected(mcp.name, mcp_names)),
+        mcps=selected_mcps,
+        secrets=tuple(secret for secret in inventory.secrets if secret.name in selected_secret_names),
         hooks=tuple(hook for hook in inventory.hooks if _selected(hook.name, hook_names)),
         specs=inventory.specs,
         errors=inventory.errors,
@@ -186,8 +192,30 @@ def _load_mcps(root: Path, state: MiresState, errors: list[ValidationMessage]) -
             errors.append(ValidationMessage(path, "server must declare either `command` or `url`"))
             continue
 
-        mcps.append(McpAsset(name=entry.slug, description=entry.description, path=path, server=server))
+        mcps.append(
+            McpAsset(
+                name=entry.slug,
+                description=entry.description,
+                path=path,
+                server=server,
+                secrets=tuple(
+                    McpSecretBinding(secret=secret.secret, env=secret.env, targets=tuple(secret.targets))
+                    for secret in entry.secrets
+                ),
+            )
+        )
     return mcps
+
+
+def _load_secrets(state: MiresState) -> list[SecretAsset]:
+    return [
+        SecretAsset(
+            name=entry.slug,
+            description=entry.description,
+            source_env=entry.source.env,
+        )
+        for entry in state.secrets
+    ]
 
 
 def _load_hooks(root: Path, state: MiresState, errors: list[ValidationMessage]) -> list[HookAsset]:

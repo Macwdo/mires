@@ -12,7 +12,9 @@ __all__ = [
     "HookAsset",
     "InstallReport",
     "McpAsset",
+    "McpSecretBinding",
     "RuleAsset",
+    "SecretAsset",
     "SkillAsset",
     "ValidationMessage",
 ]
@@ -54,10 +56,25 @@ class McpAsset:
     description: str
     path: Path
     server: dict[str, Any]
+    secrets: tuple[McpSecretBinding, ...] = ()
 
     @property
     def is_remote(self) -> bool:
         return "url" in self.server
+
+
+@dataclass(frozen=True)
+class McpSecretBinding:
+    secret: str
+    env: str
+    targets: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SecretAsset:
+    name: str
+    description: str
+    source_env: str
 
 
 @dataclass(frozen=True)
@@ -85,6 +102,7 @@ class AssetInventory:
     skills: tuple[SkillAsset, ...]
     rules: tuple[RuleAsset, ...] = ()
     mcps: tuple[McpAsset, ...] = ()
+    secrets: tuple[SecretAsset, ...] = ()
     hooks: tuple[HookAsset, ...] = ()
     specs: tuple[Path, ...] = ()
     errors: tuple[ValidationMessage, ...] = ()
