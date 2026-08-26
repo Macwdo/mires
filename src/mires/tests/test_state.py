@@ -299,6 +299,20 @@ class RepositoryStateTests(unittest.TestCase):
             with self.subTest(profile=profile.slug):
                 self.assertTrue(profile.using.subagents)
 
+    def test_specialized_explorer_and_reviewer_names_follow_the_catalog_standard(self) -> None:
+        state = load_state(REPO_ROOT)
+
+        for subagent in state.subagents:
+            role = subagent.slug.rsplit("-", maxsplit=1)[-1]
+            if role not in {"explorer", "reviewer"}:
+                continue
+            with self.subTest(subagent=subagent.slug):
+                segments = subagent.slug.split("-")
+                self.assertEqual(segments[0], "mires")
+                self.assertEqual(len(segments), 4)
+                self.assertTrue(segments[1])
+                self.assertTrue(segments[2])
+
 
 def _as_mapping(state_text: str) -> dict[str, object]:
     import yaml

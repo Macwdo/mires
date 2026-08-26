@@ -47,11 +47,19 @@ config:
       using:
         mcps: [context7]
         skills: [mires, mires-python, mires-python-django]
-        subagents: [explorer, mires-tech-standards-reviewer, planner]
+        subagents:
+          - mires-technical-context-explorer
+          - mires-technical-standards-reviewer
+          - mires-business-context-explorer
+          - mires-business-rules-reviewer
+          - planner
         rules: [no-secrets]
 ```
 
 `using` also accepts a list of mappings, which the parser merges into one.
+
+Specialized explorer and reviewer slugs use `mires-<domain>-<focus>-<role>`, with full domain names such as
+`technical` and `business`. Keep `explorer` and `reviewer` as the final role segment so routing remains predictable.
 
 Secrets are independent declarations, never stored values. A secret knows only its identity and environment source.
 Consumers reference it from their own catalog entry:

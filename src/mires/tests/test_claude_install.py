@@ -38,7 +38,9 @@ class ClaudeInstallTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((home / "agents" / "planner.md").exists())
-            self.assertTrue((home / "agents" / "mires-tech-standards-reviewer.md").exists())
+            self.assertTrue((home / "agents" / "mires-technical-standards-reviewer.md").exists())
+            self.assertTrue((home / "agents" / "mires-business-context-explorer.md").exists())
+            self.assertTrue((home / "agents" / "mires-business-rules-reviewer.md").exists())
             self.assertTrue((home / "skills" / "mires-python-django" / "SKILL.md").exists())
             self.assertTrue((home / "CLAUDE.md").exists())
             self.assertTrue((home / "settings.json").exists())
@@ -48,9 +50,10 @@ class ClaudeInstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             home = Path(temp_dir) / ".claude"
             install(home)
-            frontmatter = parse_frontmatter((home / "agents" / "explorer.md").read_text())
+            agent_name = "mires-technical-context-explorer"
+            frontmatter = parse_frontmatter((home / "agents" / f"{agent_name}.md").read_text())
 
-            self.assertEqual(frontmatter["name"], "explorer")
+            self.assertEqual(frontmatter["name"], agent_name)
             self.assertTrue(frontmatter["description"].strip())
 
     def test_canonical_hook_events_map_onto_claude_matchers(self) -> None:

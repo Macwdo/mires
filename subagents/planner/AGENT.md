@@ -21,6 +21,12 @@ Use when the user asks for a plan, when sequencing is unclear, or when the task 
 - Separate discovered constraints from assumptions.
 - Identify open questions that materially affect the plan.
 - Avoid assuming defaults such as Redis, Postgres, a cloud provider, or a framework choice unless the repo or user specifies them.
+- For product discovery or a POC, recommend `mires-business-context-explorer` before solution design and add
+  `mires-technical-context-explorer` when feasibility evidence is needed.
+- Keep business readiness and technical standards as separate gates; recommend `mires-business-rules-reviewer` and
+  `mires-technical-standards-reviewer` for their respective boundaries.
+- When research is necessary and source choice materially changes the plan, ask where to search instead of assuming
+  the market, jurisdiction, competitor set, documentation version, or source authority.
 
 ## Output Format
 

@@ -24,7 +24,7 @@ from mires.compatibility.writing import (
 
 SUPPORTED_TARGET = "opencode"
 DISPLAY_NAME = "OpenCode"
-PRIMARY_AGENT = "explorer"
+PRIMARY_AGENT = "mires-technical-context-explorer"
 AGENTS_DIR = "agents"
 SKILLS_DIR = "skills"
 MIRES_DIR = "mires"

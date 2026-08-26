@@ -17,8 +17,10 @@ config:
           - mires-next
           - mires-typescript
         subagents:
-          - explorer
-          - mires-tech-standards-reviewer
+          - mires-technical-context-explorer
+          - mires-technical-standards-reviewer
+          - mires-business-context-explorer
+          - mires-business-rules-reviewer
           - planner
         rules:
           - no-secrets
@@ -37,8 +39,10 @@ config:
           - mires-python
           - mires-python-django
         subagents:
-          - explorer
-          - mires-tech-standards-reviewer
+          - mires-technical-context-explorer
+          - mires-technical-standards-reviewer
+          - mires-business-context-explorer
+          - mires-business-rules-reviewer
           - planner
         rules:
           - no-secrets
@@ -101,13 +105,21 @@ skills:
     description: "TypeScript type ownership, shared contracts, and API response typing across frontend and Node codebases."
 
 subagents:
-  - name: Explorer
-    slug: explorer
-    description: "Inspect a repository, map relevant surfaces, and report existing patterns without modifying files."
+  - name: Mires Technical Context Explorer
+    slug: mires-technical-context-explorer
+    description: "Inspect a repository and relevant technical sources, map ownership and constraints, and report evidence without inventing architecture."
 
-  - name: Mires Tech Standards Reviewer
-    slug: mires-tech-standards-reviewer
+  - name: Mires Technical Standards Reviewer
+    slug: mires-technical-standards-reviewer
     description: "Review a codebase against its established technical standards, distinguishing patterns, gaps, convention drift, and anti-patterns."
+
+  - name: Mires Business Context Explorer
+    slug: mires-business-context-explorer
+    description: "Explore business context, requirements, rules, users, evidence, and POC hypotheses without reducing the problem to a technical solution."
+
+  - name: Mires Business Rules Reviewer
+    slug: mires-business-rules-reviewer
+    description: "Review requirements, business rules, and POC definitions for evidence, completeness, consistency, testability, and business fit."
 
   - name: Planner
     slug: planner

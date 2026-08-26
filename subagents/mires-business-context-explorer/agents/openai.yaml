@@ -1,0 +1,8 @@
+interface:
+  display_name: "mires-business-context-explorer"
+  short_description: "Explore business context, rules, evidence, and POC hypotheses without inventing domain facts."
+  default_prompt: "Use $mires-business-context-explorer. Understand the business decision before solutioning, inspect available evidence, ask where to research when material source direction is missing, and keep facts, hypotheses, rules, and unknowns explicit."
+metadata:
+  name: "mires-business-context-explorer"
+  parent: ""
+  children: []

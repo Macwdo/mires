@@ -14,16 +14,31 @@ ROOT = Path(__file__).resolve().parents[3]
 CLI = ["-m", "mires.cli"]
 
 EXPECTED_SURFACES = {
-    "codex": ("agents/explorer.toml", "skills/mires/SKILL.md", "AGENTS.md", "config.toml"),
+    "codex": (
+        "agents/mires-technical-context-explorer.toml",
+        "skills/mires/SKILL.md",
+        "AGENTS.md",
+        "config.toml",
+    ),
     "cursor": (
-        "agents/explorer.md",
+        "agents/mires-technical-context-explorer.md",
         "skills/mires/SKILL.md",
         f"{PLUGIN_DIR}/rules/no-secrets.mdc",
         "mcp.json",
         "hooks.json",
     ),
-    "claude": ("agents/explorer.md", "skills/mires/SKILL.md", "CLAUDE.md", "settings.json"),
-    "opencode": ("agents/explorer.md", "skills/mires/SKILL.md", "AGENTS.md", "opencode.json"),
+    "claude": (
+        "agents/mires-technical-context-explorer.md",
+        "skills/mires/SKILL.md",
+        "CLAUDE.md",
+        "settings.json",
+    ),
+    "opencode": (
+        "agents/mires-technical-context-explorer.md",
+        "skills/mires/SKILL.md",
+        "AGENTS.md",
+        "opencode.json",
+    ),
 }
 
 

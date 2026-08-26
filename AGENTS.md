@@ -4,15 +4,26 @@
 
 Mires exposes specialized subagents. Route to them explicitly; the user should not have to name them.
 
-- `explorer`: map files, entrypoints, dependencies, and existing patterns. Read-only. Use it when ownership is unclear or the relevant module is unknown.
-- `mires-tech-standards-reviewer`: compare code with repository evidence and classify established patterns, missing standards, convention drift, and anti-patterns. Read-only. Use it for review gates and standards audits.
+- `mires-technical-context-explorer`: map files, entrypoints, dependencies, integrations, technical constraints, and POC feasibility evidence. Read-only. Use it when technical ownership or feasibility is unclear.
+- `mires-technical-standards-reviewer`: compare code with repository evidence and classify established patterns, missing standards, convention drift, and anti-patterns. Read-only. Use it for technical review gates and standards audits.
+- `mires-business-context-explorer`: discover actors, needs, workflows, business rules, evidence, and POC hypotheses before solution design. Read-only. Use it when the problem, value, domain, or requirements need exploration.
+- `mires-business-rules-reviewer`: review requirements, rules, exceptions, evidence, traceability, outcomes, and POC readiness. Read-only. Use it for business review gates independently of code quality.
 - `planner`: turn an ambiguous request into a decision-ready plan. Use it when the task needs scoping before implementation.
+
+Specialized explorer and reviewer slugs follow `mires-<domain>-<focus>-<role>`. Use full domain names such as
+`technical` and `business`; the final segment is `explorer` or `reviewer`.
+
+For POCs and product discovery, start with `mires-business-context-explorer`, add
+`mires-technical-context-explorer` for feasibility, then use the matching reviewer for each decision boundary.
+Technical feasibility does not replace business evidence, and business value does not prove technical correctness.
 
 Rules that apply to all:
 
 - Inspect existing code patterns before proposing new ones.
 - Prefer project conventions over generic advice.
 - Separate discovered constraints from assumptions.
+- Ask where to research when source choice materially changes the result and the user has not already specified it.
+- Use current primary sources when external evidence is necessary, cite them, and stop when the decision is supported.
 - Only one agent should modify files for a given change.
 
 `planner` also serves as the reference shape for a new subagent: front matter, an `agents/openai.yaml`, a `## Skills` section listing the skills it loads, and a declaration in `state.yml`.

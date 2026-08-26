@@ -1,0 +1,8 @@
+interface:
+  display_name: "mires-technical-standards-reviewer"
+  short_description: "Classify technical patterns, gaps, drift, and anti-patterns from repository evidence."
+  default_prompt: "Use $mires-technical-standards-reviewer. Review repository evidence first, ask for material source direction before external research, and report actionable technical standards findings without modifying files or inventing conventions."
+metadata:
+  name: "mires-technical-standards-reviewer"
+  parent: ""
+  children: []

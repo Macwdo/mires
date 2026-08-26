@@ -19,9 +19,10 @@ from mires.state import load_state
 
 ROOT = Path(__file__).resolve().parents[3]
 CLI = ["-m", "mires.cli"]
+TECHNICAL_EXPLORER = "mires-technical-context-explorer"
 
 
-def make_agent(name: str = "explorer") -> AgentAsset:
+def make_agent(name: str = TECHNICAL_EXPLORER) -> AgentAsset:
     return AgentAsset(
         name=name,
         description=f"{name} canonical description",
@@ -65,8 +66,8 @@ class CodexAgentRenderingTests(unittest.TestCase):
 
         self.assertEqual(set(parsed), {"developer_instructions"})
         self.assertIn('Keep "quotes" valid.', parsed["developer_instructions"])
-        self.assertNotIn("Use $explorer.", parsed["developer_instructions"])
-        self.assertIn("/.codex/mires/agents/explorer/AGENT.md", parsed["developer_instructions"])
+        self.assertNotIn(f"Use ${TECHNICAL_EXPLORER}.", parsed["developer_instructions"])
+        self.assertIn(f"/.codex/mires/agents/{TECHNICAL_EXPLORER}/AGENT.md", parsed["developer_instructions"])
         self.assertNotIn("subagents/", rendered)
         self.assertNotIn("display_name", parsed)
         self.assertNotIn("default_prompt", parsed)
@@ -85,7 +86,10 @@ class CodexConfigPatchTests(unittest.TestCase):
         parsed = tomllib.loads(patched)
 
         self.assertEqual(parsed["model"], "gpt-5")
-        self.assertEqual(parsed["agents"]["explorer"]["config_file"], "agents/explorer.toml")
+        self.assertEqual(
+            parsed["agents"][TECHNICAL_EXPLORER]["config_file"],
+            f"agents/{TECHNICAL_EXPLORER}.toml",
+        )
 
     def test_patch_config_preserves_existing_agents_settings_and_unrelated_agent(self) -> None:
         existing = """
@@ -104,14 +108,17 @@ config_file = "agents/personal_patterns.toml"
             parsed["agents"]["personal_patterns"]["config_file"],
             "agents/personal_patterns.toml",
         )
-        self.assertEqual(parsed["agents"]["explorer"]["description"], "explorer short description")
+        self.assertEqual(
+            parsed["agents"][TECHNICAL_EXPLORER]["description"],
+            f"{TECHNICAL_EXPLORER} short description",
+        )
 
     def test_patch_config_updates_managed_entry_without_duplicates(self) -> None:
-        existing = """
+        existing = f"""
 [agents]
 max_depth = 2
 
-[agents.explorer]
+[agents.{TECHNICAL_EXPLORER}]
 description = "Old"
 config_file = "agents/old.toml"
 """.lstrip()
@@ -119,9 +126,12 @@ config_file = "agents/old.toml"
         patched_twice = patch_agents_config(patched_once, (make_agent(),))
 
         self.assertEqual(patched_once, patched_twice)
-        self.assertEqual(patched_once.count("[agents.explorer]"), 1)
+        self.assertEqual(patched_once.count(f"[agents.{TECHNICAL_EXPLORER}]"), 1)
         parsed = tomllib.loads(patched_once)
-        self.assertEqual(parsed["agents"]["explorer"]["config_file"], "agents/explorer.toml")
+        self.assertEqual(
+            parsed["agents"][TECHNICAL_EXPLORER]["config_file"],
+            f"agents/{TECHNICAL_EXPLORER}.toml",
+        )
 
     def test_patch_config_removes_previously_owned_agents_and_mcp_servers(self) -> None:
         existing = """
@@ -139,14 +149,14 @@ command = "old"
 command = "keep-me"
 """.lstrip()
         patched = patch_mcp_servers_config(
-            patch_agents_config(existing, (make_agent(),), previous_names=["planner", "explorer"]),
+            patch_agents_config(existing, (make_agent(),), previous_names=["planner", TECHNICAL_EXPLORER]),
             (),
             previous_names=["context7"],
         )
         parsed = tomllib.loads(patched)
 
         self.assertEqual(parsed["agents"]["max_threads"], 2)
-        self.assertIn("explorer", parsed["agents"])
+        self.assertIn(TECHNICAL_EXPLORER, parsed["agents"])
         self.assertNotIn("planner", parsed["agents"])
         self.assertNotIn("context7", parsed.get("mcp_servers", {}))
         self.assertEqual(parsed["mcp_servers"]["mine"]["command"], "keep-me")
@@ -163,14 +173,24 @@ class CodexInstallCommandTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Installed {len(full_inventory().agents)} subagents", result.stdout)
-            self.assertTrue((codex_home / "agents" / "explorer.toml").exists())
-            self.assertTrue((codex_home / "agents" / "mires-tech-standards-reviewer.toml").exists())
-            self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "AGENT.md").exists())
-            self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "agents" / "openai.yaml").exists())
-            self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "skills" / "mires").exists())
-            reviewer_bundle = codex_home / "mires" / "agents" / "mires-tech-standards-reviewer"
+            explorer_name = "mires-technical-context-explorer"
+            reviewer_name = "mires-technical-standards-reviewer"
+            business_explorer_name = "mires-business-context-explorer"
+            business_reviewer_name = "mires-business-rules-reviewer"
+            self.assertTrue((codex_home / "agents" / f"{explorer_name}.toml").exists())
+            self.assertTrue((codex_home / "agents" / f"{reviewer_name}.toml").exists())
+            self.assertTrue((codex_home / "agents" / f"{business_explorer_name}.toml").exists())
+            self.assertTrue((codex_home / "agents" / f"{business_reviewer_name}.toml").exists())
+            explorer_bundle = codex_home / "mires" / "agents" / explorer_name
+            self.assertTrue((explorer_bundle / "AGENT.md").exists())
+            self.assertTrue((explorer_bundle / "agents" / "openai.yaml").exists())
+            self.assertTrue((explorer_bundle / "skills" / "mires").exists())
+            reviewer_bundle = codex_home / "mires" / "agents" / reviewer_name
             self.assertTrue((reviewer_bundle / "AGENT.md").exists())
             self.assertTrue((reviewer_bundle / "skills" / "mires-typescript").exists())
+            business_bundle = codex_home / "mires" / "agents" / business_reviewer_name
+            self.assertTrue((business_bundle / "AGENT.md").exists())
+            self.assertTrue((business_bundle / "skills" / "mires").exists())
             self.assertTrue((codex_home / "skills" / "mires" / "SKILL.md").exists())
             self.assertTrue((codex_home / "AGENTS.md").exists())
             self.assertIn("<!-- BEGIN MIRES -->", (codex_home / "AGENTS.md").read_text())
@@ -183,10 +203,13 @@ class CodexInstallCommandTests(unittest.TestCase):
             self.assertEqual(sorted((codex_home / "agents").glob("*/*.toml")), [])
             self.assertFalse((codex_home / "agents" / "mires").exists())
             parsed_config = tomllib.loads((codex_home / "config.toml").read_text())
-            self.assertEqual(parsed_config["agents"]["explorer"]["config_file"], "agents/explorer.toml")
+            self.assertEqual(
+                parsed_config["agents"][explorer_name]["config_file"],
+                f"agents/{explorer_name}.toml",
+            )
             self.assertIn("context7", parsed_config["mcp_servers"])
             self.assertEqual(parsed_config["mcp_servers"]["context7"]["env_vars"], ["CONTEXT7_API_KEY"])
-            parsed_agent = tomllib.loads((codex_home / "agents" / "explorer.toml").read_text())
+            parsed_agent = tomllib.loads((codex_home / "agents" / f"{explorer_name}.toml").read_text())
             skill_paths = [entry["path"] for entry in parsed_agent["skills"]["config"]]
             self.assertTrue(all(Path(path).is_absolute() for path in skill_paths))
 
@@ -203,7 +226,7 @@ class CodexInstallCommandTests(unittest.TestCase):
 
             narrowed = filter_inventory(
                 inventory,
-                agent_names={"explorer"},
+                agent_names={"mires-technical-context-explorer"},
                 skill_names={"mires", "mires-python", "mires-python-django"},
                 rule_names=set(),
                 mcp_names=set(),
@@ -212,7 +235,7 @@ class CodexInstallCommandTests(unittest.TestCase):
             install_codex_assets(narrowed, home)
 
             config = tomllib.loads((home / "config.toml").read_text())
-            self.assertIn("explorer", config["agents"])
+            self.assertIn("mires-technical-context-explorer", config["agents"])
             self.assertNotIn("planner", config["agents"])
             self.assertNotIn("mcp_servers", config)
             self.assertFalse((home / "agents" / "planner.toml").exists())

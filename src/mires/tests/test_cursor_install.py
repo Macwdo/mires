@@ -35,7 +35,9 @@ class CursorInstallTests(unittest.TestCase):
             result = install(home)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((home / "agents" / "explorer.md").exists())
+            self.assertTrue((home / "agents" / "mires-technical-context-explorer.md").exists())
+            self.assertTrue((home / "agents" / "mires-business-context-explorer.md").exists())
+            self.assertTrue((home / "agents" / "mires-business-rules-reviewer.md").exists())
             self.assertTrue((home / "skills" / "mires-python" / "SKILL.md").exists())
             self.assertTrue((home / PLUGIN_DIR / "rules" / "no-secrets.mdc").exists())
             self.assertTrue((home / PLUGIN_DIR / ".cursor-plugin" / "plugin.json").exists())

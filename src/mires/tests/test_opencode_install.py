@@ -67,8 +67,12 @@ class OpenCodeAgentRenderingTests(unittest.TestCase):
         self.assertIn("/tmp/mires-opencode-home/mires/agents/planner/AGENT.md", rendered)
         self.assertNotIn("subagents/", rendered)
 
-    def test_render_explorer_as_primary_agent(self) -> None:
-        rendered = render_agent_markdown(make_agent("explorer"), (), Path("/tmp/mires-opencode-home"))
+    def test_render_technical_explorer_as_primary_agent(self) -> None:
+        rendered = render_agent_markdown(
+            make_agent("mires-technical-context-explorer"),
+            (),
+            Path("/tmp/mires-opencode-home"),
+        )
         frontmatter = parse_frontmatter(rendered)
 
         self.assertEqual(frontmatter["mode"], "primary")
@@ -101,9 +105,11 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Installed {len(full_inventory().agents)} subagents", result.stdout)
             self.assertTrue((opencode_home / "agents" / "planner.md").exists())
-            self.assertTrue((opencode_home / "agents" / "mires-tech-standards-reviewer.md").exists())
+            self.assertTrue((opencode_home / "agents" / "mires-technical-standards-reviewer.md").exists())
+            self.assertTrue((opencode_home / "agents" / "mires-business-context-explorer.md").exists())
+            self.assertTrue((opencode_home / "agents" / "mires-business-rules-reviewer.md").exists())
             self.assertTrue((opencode_home / "mires" / "agents" / "planner" / "AGENT.md").exists())
-            reviewer_bundle = opencode_home / "mires" / "agents" / "mires-tech-standards-reviewer"
+            reviewer_bundle = opencode_home / "mires" / "agents" / "mires-technical-standards-reviewer"
             self.assertTrue((reviewer_bundle / "AGENT.md").exists())
             self.assertIn("mires-typescript", (reviewer_bundle / "MANIFEST.md").read_text())
             self.assertTrue((opencode_home / "skills" / "mires-python" / "SKILL.md").exists())
