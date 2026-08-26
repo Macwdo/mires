@@ -162,11 +162,15 @@ class CodexInstallCommandTests(unittest.TestCase):
             result = install(codex_home)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Installed 2 subagents", result.stdout)
+            self.assertIn(f"Installed {len(full_inventory().agents)} subagents", result.stdout)
             self.assertTrue((codex_home / "agents" / "explorer.toml").exists())
+            self.assertTrue((codex_home / "agents" / "mires-tech-standards-reviewer.toml").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "AGENT.md").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "agents" / "openai.yaml").exists())
             self.assertTrue((codex_home / "mires" / "agents" / "explorer" / "skills" / "mires").exists())
+            reviewer_bundle = codex_home / "mires" / "agents" / "mires-tech-standards-reviewer"
+            self.assertTrue((reviewer_bundle / "AGENT.md").exists())
+            self.assertTrue((reviewer_bundle / "skills" / "mires-typescript").exists())
             self.assertTrue((codex_home / "skills" / "mires" / "SKILL.md").exists())
             self.assertTrue((codex_home / "AGENTS.md").exists())
             self.assertIn("<!-- BEGIN MIRES -->", (codex_home / "AGENTS.md").read_text())

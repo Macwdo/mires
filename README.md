@@ -47,7 +47,7 @@ config:
       using:
         mcps: [context7]
         skills: [mires, mires-python, mires-python-django]
-        subagents: [explorer, planner]
+        subagents: [explorer, mires-tech-standards-reviewer, planner]
         rules: [no-secrets]
 ```
 

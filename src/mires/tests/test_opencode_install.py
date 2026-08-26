@@ -88,6 +88,10 @@ def install(home: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     return run_cli("install", "--target", "opencode", "--root", str(ROOT), "--opencode-home", str(home), *extra)
 
 
+def full_inventory():
+    return load_inventory(ROOT, load_state(ROOT))
+
+
 class OpenCodeInstallCommandTests(unittest.TestCase):
     def test_install_command_writes_agents_skills_and_bundles(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -95,10 +99,15 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
             result = install(opencode_home)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Installed 2 subagents", result.stdout)
+            self.assertIn(f"Installed {len(full_inventory().agents)} subagents", result.stdout)
             self.assertTrue((opencode_home / "agents" / "planner.md").exists())
+            self.assertTrue((opencode_home / "agents" / "mires-tech-standards-reviewer.md").exists())
             self.assertTrue((opencode_home / "mires" / "agents" / "planner" / "AGENT.md").exists())
+            reviewer_bundle = opencode_home / "mires" / "agents" / "mires-tech-standards-reviewer"
+            self.assertTrue((reviewer_bundle / "AGENT.md").exists())
+            self.assertIn("mires-typescript", (reviewer_bundle / "MANIFEST.md").read_text())
             self.assertTrue((opencode_home / "skills" / "mires-python" / "SKILL.md").exists())
+            self.assertTrue((opencode_home / "skills" / "mires-typescript" / "SKILL.md").exists())
             self.assertTrue((opencode_home / "AGENTS.md").exists())
             context7 = json.loads((opencode_home / "opencode.json").read_text())["mcp"]["context7"]
             self.assertEqual(context7["environment"], {"CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"})

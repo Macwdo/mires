@@ -4,7 +4,7 @@ config:
   profiles:
     - name: Personal
       slug: personal
-      description: "Everything Mires owns: the full skill catalog, both subagents, and every rule."
+      description: "Everything Mires owns: the full skill catalog, every subagent, and every rule."
       using:
         mcps:
           - context7
@@ -18,6 +18,7 @@ config:
           - mires-typescript
         subagents:
           - explorer
+          - mires-tech-standards-reviewer
           - planner
         rules:
           - no-secrets
@@ -37,6 +38,7 @@ config:
           - mires-python-django
         subagents:
           - explorer
+          - mires-tech-standards-reviewer
           - planner
         rules:
           - no-secrets
@@ -102,6 +104,10 @@ subagents:
   - name: Explorer
     slug: explorer
     description: "Inspect a repository, map relevant surfaces, and report existing patterns without modifying files."
+
+  - name: Mires Tech Standards Reviewer
+    slug: mires-tech-standards-reviewer
+    description: "Review a codebase against its established technical standards, distinguishing patterns, gaps, convention drift, and anti-patterns."
 
   - name: Planner
     slug: planner

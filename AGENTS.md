@@ -2,12 +2,13 @@
 
 ## Runtime Routing
 
-Mires exposes two subagents. Route to them explicitly; the user should not have to name them.
+Mires exposes specialized subagents. Route to them explicitly; the user should not have to name them.
 
 - `explorer`: map files, entrypoints, dependencies, and existing patterns. Read-only. Use it when ownership is unclear or the relevant module is unknown.
+- `mires-tech-standards-reviewer`: compare code with repository evidence and classify established patterns, missing standards, convention drift, and anti-patterns. Read-only. Use it for review gates and standards audits.
 - `planner`: turn an ambiguous request into a decision-ready plan. Use it when the task needs scoping before implementation.
 
-Rules that apply to both:
+Rules that apply to all:
 
 - Inspect existing code patterns before proposing new ones.
 - Prefer project conventions over generic advice.

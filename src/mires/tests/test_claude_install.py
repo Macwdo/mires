@@ -38,6 +38,7 @@ class ClaudeInstallTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((home / "agents" / "planner.md").exists())
+            self.assertTrue((home / "agents" / "mires-tech-standards-reviewer.md").exists())
             self.assertTrue((home / "skills" / "mires-python-django" / "SKILL.md").exists())
             self.assertTrue((home / "CLAUDE.md").exists())
             self.assertTrue((home / "settings.json").exists())

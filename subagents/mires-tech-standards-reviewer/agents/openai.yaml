@@ -1,0 +1,8 @@
+interface:
+  display_name: "mires-tech-standards-reviewer"
+  short_description: "Classify codebase patterns, gaps, drift, and anti-patterns."
+  default_prompt: "Use $mires-tech-standards-reviewer. Inspect repository evidence, classify standards findings, and report actionable alignment without modifying files."
+metadata:
+  name: "mires-tech-standards-reviewer"
+  parent: ""
+  children: []
