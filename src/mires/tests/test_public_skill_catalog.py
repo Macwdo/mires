@@ -87,6 +87,12 @@ class PublicSkillCatalogTests(unittest.TestCase):
             "class AddressViewSet(viewsets.ModelViewSet)",
             'self.kwargs["customer_pk"]',
             'reverse("customer-address-list"',
+            "def given_a_customer(",
+            "def given_an_address(",
+            "from .helpers import given_a_customer, given_an_address",
+            "# given",
+            "# when",
+            "# then",
         }
 
         missing = {shape for shape in required_shapes if shape not in text}
@@ -94,6 +100,12 @@ class PublicSkillCatalogTests(unittest.TestCase):
         self.assertNotIn("class InvoiceByProfileIdSerializer", text)
         self.assertNotIn("UserScopedPrimaryKeyRelatedField", text)
         self.assertNotIn('user_lookup="owner"', text)
+        self.assertNotIn(
+            "def test_address_list_is_scoped_to_the_parent_customer(api_client, user):\n"
+            "    api_client.force_authenticate(user)\n"
+            "    customer = Customer.objects.create(",
+            text,
+        )
 
     def test_python_skills_share_the_uv_ruff_ty_toolchain(self) -> None:
         required = {

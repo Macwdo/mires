@@ -288,7 +288,7 @@ For non-Django Python, use `$mires-python`. For LangChain integrations hosted in
 - Selectors: scoping, filtering, ordering, annotations, and query count where material.
 - Services: transactions, idempotency, effects, domain failures, and retries.
 - Serializers: valid/invalid inputs and stable output contracts.
-- APIs: authentication, authorization, status, body, pagination, and error shape.
+- APIs: authentication, authorization, status, body, pagination, and error shape. Arrange through `given_*` HTTP helpers and assert with Given / When / Then.
 - Operations: settings validation, health endpoints, task wiring, and storage adapters when changed.
 
 ## Simple Relational CRUD: ModelSerializer And ModelViewSet Reference
@@ -371,7 +371,8 @@ from .models import Address, Customer, CustomerProfile
 class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProfile
-        fields = ["phone", "notes"]
+        fields = ["id", "phone", "notes"]
+        read_only_fields = ["id"]
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -699,7 +700,7 @@ Use a separate read serializer for the response so the output remains the stable
 
 ### Scoped Relation Utility Test
 
-Test the security property owned by the field utility independently from the ViewSet:
+Test the security property owned by the field utility independently from the ViewSet. ORM setup is correct here because this is not an endpoint test:
 
 ```python
 from types import SimpleNamespace
@@ -867,7 +868,7 @@ urlpatterns = [
 
 This generates `/customers/`, `/customers/{pk}/`, `/customers/{customer_pk}/profile/`, `/customers/{customer_pk}/profile/{pk}/`, `/customers/{customer_pk}/addresses/`, and `/customers/{customer_pk}/addresses/{pk}/`.
 
-Do not include a trailing slash in the router prefix. Use the generated names such as `customer-list`, `customer-detail`, `customer-address-list`, and `customer-address-detail` in tests. A nested `reverse()` needs `kwargs={"customer_pk": customer.pk}`.
+Do not include a trailing slash in the router prefix. Use the generated names such as `customer-list`, `customer-detail`, `customer-address-list`, and `customer-address-detail` in tests. A nested `reverse()` needs `kwargs={"customer_pk": customer["id"]}` when the customer came from a `given_*` helper.
 
 Use `NestedDefaultRouter` only when the nested collection should appear on a browsable API root. Prefer `NestedSimpleRouter` for child routes. For a second nesting level, wrap the child router the same way: `NestedSimpleRouter(customers_router, "addresses", lookup="address")`.
 
@@ -881,6 +882,7 @@ The read serializer produces a contract shaped like:
   "name": "Ada Lovelace",
   "email": "ada@example.test",
   "profile": {
+    "id": 3,
     "phone": "+55 11 0000-0000",
     "notes": "Prefers email"
   },
@@ -898,43 +900,110 @@ The read serializer produces a contract shaped like:
 }
 ```
 
+### HTTP Given Helpers
+
+Put reusable arrange helpers in `tests/helpers.py`. Name them `given_a_<resource>` or `given_an_<resource>`. Each helper POSTs through the already-authenticated client, asserts the setup status, and returns the public API representation. Do not plant endpoint-test state with `Model.objects.create` when a create API exists.
+
+`given_a_customer` follows the create with a retrieve so later tests use the read contract, including nested ids.
+
+```python
+from typing import Any
+
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient
+
+
+def given_a_customer(
+    *,
+    api_client: APIClient,
+    name: str = "Ada Lovelace",
+    email: str = "ada@example.test",
+    profile: dict[str, Any] | None = None,
+    addresses: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": name,
+        "email": email,
+        "profile": profile or {"phone": "123", "notes": ""},
+    }
+    if addresses is not None:
+        payload["addresses"] = addresses
+
+    created = api_client.post(reverse("customer-list"), payload, format="json")
+    assert created.status_code == status.HTTP_201_CREATED
+
+    detail = api_client.get(reverse("customer-detail", args=[created.data["id"]]))
+    assert detail.status_code == status.HTTP_200_OK
+    return detail.data
+
+
+def given_an_address(
+    *,
+    api_client: APIClient,
+    customer_id: int,
+    label: str = "home",
+    city: str = "London",
+    country: str = "GB",
+    is_primary: bool = True,
+) -> dict[str, Any]:
+    response = api_client.post(
+        reverse("customer-address-list", kwargs={"customer_pk": customer_id}),
+        {
+            "label": label,
+            "city": city,
+            "country": country,
+            "is_primary": is_primary,
+        },
+        format="json",
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    return response.data
+```
+
 ### API Tests For Nested CRUD
+
+Structure each endpoint test as Given / When / Then. Given uses `given_*` helpers. When is the endpoint under test. Then asserts HTTP status and body, then a follow-up GET when the test needs persisted or scoped state.
 
 ```python
 import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from .models import Address, Customer, CustomerProfile
+from .helpers import given_a_customer, given_an_address
 
 
 @pytest.mark.django_db
 def test_customer_detail_returns_nested_relations(api_client, user):
     api_client.force_authenticate(user)
-    customer = Customer.objects.create(
-        owner=user,
-        name="Ada Lovelace",
-        email="ada@example.test",
-    )
-    CustomerProfile.objects.create(customer=customer, phone="123", notes="")
-    Address.objects.create(
-        customer=customer,
-        label="home",
-        city="London",
-        country="GB",
-        is_primary=True,
+
+    # given
+    customer = given_a_customer(
+        api_client=api_client,
+        addresses=[
+            {
+                "label": "home",
+                "city": "London",
+                "country": "GB",
+                "is_primary": True,
+            }
+        ],
     )
 
-    response = api_client.get(reverse("customer-detail", args=[customer.pk]))
+    # when
+    response = api_client.get(reverse("customer-detail", args=[customer["id"]]))
 
+    # then
     assert response.status_code == status.HTTP_200_OK
-    assert response.data["profile"] == {"phone": "123", "notes": ""}
+    assert response.data["profile"]["phone"] == "123"
     assert response.data["addresses"][0]["label"] == "home"
 
 
 @pytest.mark.django_db
 def test_customer_create_persists_nested_relations(api_client, user):
     api_client.force_authenticate(user)
+
+    # given
     payload = {
         "name": "Ada Lovelace",
         "email": "ada@example.test",
@@ -949,46 +1018,48 @@ def test_customer_create_persists_nested_relations(api_client, user):
         ],
     }
 
+    # when
     response = api_client.post(reverse("customer-list"), payload, format="json")
 
+    # then
     assert response.status_code == status.HTTP_201_CREATED
-    customer = Customer.objects.get(owner=user, email="ada@example.test")
-    assert customer.profile.phone == "123"
-    assert customer.addresses.get().city == "London"
+    detail = api_client.get(reverse("customer-detail", args=[response.data["id"]]))
+    assert detail.status_code == status.HTTP_200_OK
+    assert detail.data["profile"]["phone"] == "123"
+    assert detail.data["addresses"][0]["city"] == "London"
 
 
 @pytest.mark.django_db
 def test_address_list_is_scoped_to_the_parent_customer(api_client, user):
     api_client.force_authenticate(user)
-    customer = Customer.objects.create(
-        owner=user,
-        name="Ada Lovelace",
-        email="ada@example.test",
-    )
-    other = Customer.objects.create(
-        owner=user,
+
+    # given
+    customer = given_a_customer(api_client=api_client)
+    other = given_a_customer(
+        api_client=api_client,
         name="Other",
         email="other@example.test",
     )
-    Address.objects.create(
-        customer=customer,
+    given_an_address(
+        api_client=api_client,
+        customer_id=customer["id"],
         label="home",
         city="London",
-        country="GB",
-        is_primary=True,
     )
-    Address.objects.create(
-        customer=other,
+    given_an_address(
+        api_client=api_client,
+        customer_id=other["id"],
         label="office",
         city="Paris",
         country="FR",
-        is_primary=True,
     )
 
+    # when
     response = api_client.get(
-        reverse("customer-address-list", kwargs={"customer_pk": customer.pk})
+        reverse("customer-address-list", kwargs={"customer_pk": customer["id"]})
     )
 
+    # then
     assert response.status_code == status.HTTP_200_OK
     assert [row["city"] for row in response.data] == ["London"]
 
@@ -996,14 +1067,13 @@ def test_address_list_is_scoped_to_the_parent_customer(api_client, user):
 @pytest.mark.django_db
 def test_address_create_binds_the_parent_from_the_url(api_client, user):
     api_client.force_authenticate(user)
-    customer = Customer.objects.create(
-        owner=user,
-        name="Ada Lovelace",
-        email="ada@example.test",
-    )
 
+    # given
+    customer = given_a_customer(api_client=api_client)
+
+    # when
     response = api_client.post(
-        reverse("customer-address-list", kwargs={"customer_pk": customer.pk}),
+        reverse("customer-address-list", kwargs={"customer_pk": customer["id"]}),
         {
             "label": "home",
             "city": "London",
@@ -1013,37 +1083,43 @@ def test_address_create_binds_the_parent_from_the_url(api_client, user):
         format="json",
     )
 
+    # then
     assert response.status_code == status.HTTP_201_CREATED
-    address = Address.objects.get(pk=response.data["id"])
-    assert address.customer_id == customer.pk
-    assert address.city == "London"
+    listed = api_client.get(
+        reverse("customer-address-list", kwargs={"customer_pk": customer["id"]})
+    )
+    assert listed.status_code == status.HTTP_200_OK
+    assert listed.data[0]["id"] == response.data["id"]
+    assert listed.data[0]["city"] == "London"
 
 
 @pytest.mark.django_db
 def test_profile_update_uses_the_nested_router(api_client, user):
     api_client.force_authenticate(user)
-    customer = Customer.objects.create(
-        owner=user,
-        name="Ada Lovelace",
-        email="ada@example.test",
-    )
-    profile = CustomerProfile.objects.create(customer=customer, phone="123", notes="")
 
+    # given
+    customer = given_a_customer(api_client=api_client)
+
+    # when
     response = api_client.patch(
         reverse(
             "customer-profile-detail",
-            kwargs={"customer_pk": customer.pk, "pk": profile.pk},
+            kwargs={
+                "customer_pk": customer["id"],
+                "pk": customer["profile"]["id"],
+            },
         ),
         {"notes": "Prefers email"},
         format="json",
     )
 
+    # then
     assert response.status_code == status.HTTP_200_OK
-    profile.refresh_from_db()
-    assert profile.notes == "Prefers email"
+    detail = api_client.get(reverse("customer-detail", args=[customer["id"]]))
+    assert detail.data["profile"]["notes"] == "Prefers email"
 ```
 
-Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve, update, and delete on both parent and nested routes. Add query-count coverage when nested list performance is a material risk.
+Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve, update, and delete on both parent and nested routes. Plant the other account through a second authenticated client and its own `given_*` helpers. Add query-count coverage when nested list performance is a material risk.
 
 ### Nested CRUD Completion Checklist
 
@@ -1059,7 +1135,7 @@ Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve,
 - Querysets match serializer relations with `select_related` and `prefetch_related`.
 - Serializer selection matches `list`, `retrieve`, `create`, `update`, and `partial_update` contracts.
 - Router `basename` and test route names are explicit, including nested names such as `customer-address-list`.
-- Tests cover nested output, nested persistence, nested-router CRUD, permissions, and material query behavior.
+- Tests arrange via `given_*` HTTP helpers and follow Given / When / Then.
 
 ## Django
 
@@ -1792,6 +1868,22 @@ Use this section when behavior belongs on an existing resource.
 
 ---
 
+### Django Tests Given When Then
+
+Use this section when writing an authenticated DRF endpoint test.
+
+#### Rules
+
+- Structure the test as `# given`, `# when`, `# then`.
+- Given arranges state through `given_a_<resource>` or `given_an_<resource>` helpers that call the public create API.
+- When is the single endpoint under test.
+- Then asserts HTTP status and body. For mutations or scoping, prove the result with a follow-up GET on the public API.
+- Keep the client authenticated before calling `given_*` helpers.
+- Do not plant endpoint-test state with `Model.objects.create` when a create API exists.
+- Use ORM setup only for isolated serializer, selector, service, or constraint tests, or for state the API cannot create.
+
+---
+
 ### Django Tests Authenticated API
 
 Use this section when testing an authenticated DRF endpoint.
@@ -1802,7 +1894,8 @@ Use this section when testing an authenticated DRF endpoint.
 - Destructure the tuple into `api_client, user` for clarity.
 - Use `reverse()` with the real route name.
 - Assert the HTTP status code and full response body.
-- For mutations, assert the resulting database state after the call.
+- For mutations, prove the result with a follow-up GET on the public API.
+- Assert database state only when the behavior is not visible over HTTP.
 - Use `@pytest.mark.django_db` on tests that touch the database.
 
 ---
@@ -1816,7 +1909,8 @@ Use this section as the checklist for DRF endpoint tests.
 - Use `@pytest.mark.django_db` on every test that touches the database.
 - Use `reverse()`, never hardcoded URLs.
 - Assert both HTTP status and response body.
-- For mutations, assert the resulting database state.
+- Arrange through `given_*` HTTP helpers when the public API can create the resource.
+- For mutations, prove the result with a follow-up GET on the public API.
 - Mock external services at the module where they are used.
 - For list endpoints, assert the paginated response shape used by the repo.
 
@@ -1831,10 +1925,11 @@ Use this section as a negative checklist for Django tests.
 - Do not use `factory_boy`.
 - Do not use model factories of any kind.
 - Do not use Django fixture files such as `.json`, `.yaml`, or `.xml`.
+- Do not arrange endpoint tests with `Model.objects.create` when a public create API exists.
 - Do not hardcode URLs.
 - Do not skip response-body assertions on API tests.
 - Do not hide important setup inside opaque fixtures when a helper would make the flow clearer.
-- If a factory seems convenient, create a helper instead.
+- If a factory seems convenient, create a `given_*` helper instead.
 
 ---
 
@@ -1844,7 +1939,9 @@ Use this section when setting up reusable Django test state.
 
 #### Rules
 
-- Build state through helpers or the public API whenever practical.
+- Name arrange helpers `given_a_<resource>` or `given_an_<resource>`.
+- Implement them as authenticated HTTP calls against the public API when that API can create the resource.
+- Assert the setup status inside the helper and return `response.data`, or a follow-up GET when the read contract differs from create.
 - Helpers should use keyword-only arguments and sensible defaults.
 - If setup is missing, add or extend `tests/helpers.py` instead of creating one-off ORM setup inline.
 - Fixtures should wrap helpers, authenticated clients, or other common setup utilities.
@@ -1910,7 +2007,7 @@ Use this section when testing DRF list endpoints.
 - Use the repo pagination convention for `next`, `previous`, and `results`.
 - Assert ordering when list order is part of the endpoint contract.
 - Create enough data to prove filtering, scope, or pagination behavior when relevant.
-- Keep setup in helpers when repeated across list tests.
+- Keep list setup in `given_*` helpers when it repeats across tests.
 
 #### Expected Shape
 
@@ -1931,10 +2028,10 @@ Use this section when adding tests for Django models, serializers, views, servic
 #### Rules
 
 - Inspect the app `tests/`, `helpers.py`, and `conftest.py` before adding setup code.
-- Reuse existing helper names, auth fixtures, route naming, and response assertion style.
+- Reuse existing `given_*` helper names, auth fixtures, route naming, and response assertion style.
 - Start from user-visible behavior or the API contract.
 - Make the smallest production change that satisfies the failing test.
-- Move repeated setup into `tests/helpers.py` during refactor.
+- Move repeated HTTP setup into `tests/helpers.py` as `given_*` helpers during refactor.
 
 #### Workflow
 
