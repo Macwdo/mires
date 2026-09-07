@@ -104,7 +104,7 @@ Let `project.requires-python` define the minimum Python version for both code an
 
 - Type every public function and method: parameters, return value, yielded value, callback, and important attributes.
 - Use `collections.abc` for callable and collection protocols and built-in generics such as `list[str]` and `dict[str, object]`.
-- Use `Protocol` for injected behavior, `TypedDict` for stable dictionary contracts, and dataclasses for value objects.
+- Use `Protocol` for injected behavior, Pydantic models for DTOs, `TypedDict` for dictionary contracts that remain dictionaries, and dataclasses for value objects.
 - Keep `Any` at an untyped external boundary; validate or narrow it immediately instead of allowing it into domain code.
 - Prefer `object` for an unknown value that must be narrowed and a type variable for values that must preserve their type.
 - Use `Self` for fluent methods and `TypeVar` only when a real relationship between input and output types exists.
@@ -219,9 +219,9 @@ Use this section when adding or refactoring typed Python APIs.
 #### Rules
 
 - Add type hints to public functions, methods, return values, and important local data structures.
-- Prefer concrete types such as `list[str]`, `dict[str, Any]`, `Path`, and domain-specific aliases over vague placeholders.
+- Prefer concrete types such as `list[str]`, `Path`, and domain-specific aliases over vague placeholders. Do not annotate dictionaries with an unconstrained value type.
 - Use keyword-only arguments for service-style functions, helpers, and orchestration entry points when clarity improves.
-- Use `TypedDict`, `dataclass`, or small domain types when dictionaries become ambiguous.
+- Use `TypedDict` when a value stays a dictionary and its keys are known. Use a Pydantic model for DTOs.
 - Keep types aligned with the repo type checker and Python version.
 
 #### Example
@@ -230,17 +230,18 @@ Use this section when adding or refactoring typed Python APIs.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypedDict
+
+from pydantic import BaseModel
 
 
-class ReportSummary(TypedDict):
+class ReportSummary(BaseModel):
     path: Path
     line_count: int
 
 
 def summarize_report(*, path: Path) -> ReportSummary:
     line_count = len(path.read_text().splitlines())
-    return {"path": path, "line_count": line_count}
+    return ReportSummary(path=path, line_count=line_count)
 ```
 
 ---

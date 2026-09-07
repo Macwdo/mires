@@ -31,7 +31,7 @@ Django projects inherit the complete `$mires-python` toolchain contract:
 ```bash
 uv init
 uv python pin 3.12
-uv add django djangorestframework drf-nested-routers
+uv add django djangorestframework drf-nested-routers pydantic
 uv add --dev pytest pytest-django ruff ty
 uv sync
 ```
@@ -53,6 +53,7 @@ dependencies = [
   "django",
   "djangorestframework",
   "drf-nested-routers",
+  "pydantic",
 ]
 
 [dependency-groups]
@@ -96,14 +97,47 @@ Adjust the source root and settings module to the repository. `ty` derives its P
 - Settings helpers, storage adapters, SDK clients, signals, and management commands.
 - Test fixtures and reusable factories when inference is unclear.
 
-Do not annotate every Django model field redundantly when the assignment is already clear. Concentrate annotations at public boundaries and dynamic framework extension points.
+Do not annotate every Django model field redundantly when the assignment is already clear. Concentrate annotations at public boundaries and dynamic framework extension points. Do not annotate dictionaries or mappings with an unconstrained value type; those annotations add no information.
+
+Use a `TypedDict` when a value stays a dictionary and its keys are known. Do not invent a Pydantic DTO that only restates `validated_data`.
+
+Name type variables without a leading underscore, for example `ModelT`.
+
+### Django DTOs And Typed Dicts
+
+- Keep request validation in DRF serializers.
+- When the serializer write shape already matches the service or model fields, call the service with `**serializer.validated_data` or, inside `create()`, `**validated_data`.
+- When the caller already has a Pydantic DTO, expand it with `**data.model_dump()`.
+- Introduce a Pydantic DTO when the service is called without a serializer, when the input shape differs from the serializer, or when the payload must carry an already-resolved Django model.
+- Use `TypedDict` for dictionary contracts that remain dictionaries: serializer context, JSON-like test payloads, and other fixed key sets.
+
+Enable `arbitrary_types_allowed` only when a DTO must hold a non-Pydantic object such as a Django model instance. Primitive serializer fields do not need a DTO.
+
+```python
+from pydantic import BaseModel, ConfigDict
+
+from .models import BillingProfile, Invoice
+
+
+class InvoiceCreateDTO(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    reference: str
+    customer_profile: BillingProfile
+
+
+def invoice_create(*, owner, data: InvoiceCreateDTO) -> Invoice:
+    return Invoice.objects.create(owner=owner, **data.model_dump())
+```
+
+Use that DTO after a related object has already been resolved. Do not wrap a one-field serializer payload in a matching one-field DTO.
 
 ### Typed QuerySet, Selector, And Service
 
 ```python
 from __future__ import annotations
 
-from typing import Self, TypedDict
+from typing import Self
 
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import models, transaction
@@ -138,30 +172,20 @@ class Customer(models.Model):
         return self.name
 
 
-class CustomerCreateData(TypedDict):
-    name: str
-
-
 def customer_list(*, owner: AbstractBaseUser) -> QuerySet[Customer]:
     return Customer.objects.active().filter(owner=owner)
 
 
 @transaction.atomic
-def customer_create(
-    *,
-    owner: AbstractBaseUser,
-    data: CustomerCreateData,
-) -> Customer:
-    return Customer.objects.create(owner=owner, **data)
+def customer_create(*, owner: AbstractBaseUser, name: str) -> Customer:
+    return Customer.objects.create(owner=owner, name=name)
 ```
 
-Use the repository's concrete user model type when available. Keep DTOs at service/API boundaries; do not duplicate a serializer schema and a `TypedDict` unless both have real consumers.
+Use the repository's concrete user model type when available. Pass model instances as method arguments. When the caller is a serializer, spread `**validated_data` into those arguments instead of building a DTO.
 
 ### Typed DRF Boundary
 
 ```python
-from typing import Any
-
 from django.db.models import QuerySet
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -175,10 +199,9 @@ class CustomerCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
         read_only_fields = ["id"]
 
-    def create(self, validated_data: dict[str, Any]) -> Customer:
+    def create(self, validated_data) -> Customer:
         request = self.context["request"]
-        data: CustomerCreateData = {"name": validated_data["name"]}
-        return customer_create(owner=request.user, data=data)
+        return customer_create(owner=request.user, **validated_data)
 
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -195,7 +218,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 ```
 
-`dict[str, Any]` is acceptable at DRF's dynamic validated-data boundary; narrow it before calling domain code. Do not spread `Any` through selectors and services.
+Leave DRF `validated_data` untyped. Spread it into the service when the keys already match. Build a Pydantic DTO only when the service input is a different shape or must carry a resolved model.
 
 Some stub packages describe `ModelSerializer` or `GenericViewSet` as generic even when the runtime class is not subscriptable. Do not write `ModelSerializer[Customer]` or `GenericViewSet[Customer]` unless the installed runtime explicitly supports that syntax or the project intentionally applies a compatible runtime patch.
 
@@ -407,8 +430,6 @@ The field names match `related_name`, so no `source=` is needed. If the API name
 Use explicit transactional persistence when one request intentionally creates the aggregate:
 
 ```python
-from typing import Any
-
 from django.db import transaction
 from rest_framework import serializers
 
@@ -425,7 +446,7 @@ class CustomerCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     @transaction.atomic
-    def create(self, validated_data: dict[str, Any]) -> Customer:
+    def create(self, validated_data) -> Customer:
         profile_data = validated_data.pop("profile")
         addresses_data = validated_data.pop("addresses", [])
 
@@ -478,8 +499,6 @@ Request:
 Serializer:
 
 ```python
-from typing import Any
-
 from django.db import transaction
 from rest_framework import serializers
 
@@ -501,7 +520,7 @@ class InvoiceNestedProfileCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     @transaction.atomic
-    def create(self, validated_data: dict[str, Any]) -> Invoice:
+    def create(self, validated_data) -> Invoice:
         profile_data = validated_data.pop("customer_profile")
         request = self.context["request"]
 
@@ -540,44 +559,46 @@ Put reusable request-scoped relational fields beside the project's existing DRF 
 Keep the field generic: it only allows `queryset=` to be a callable that receives the serializer context. Domain scoping stays in a small named function beside the feature's selectors.
 
 ```python
-from collections.abc import Callable, Mapping
-from typing import Any, Generic, TypeVar, cast
+from collections.abc import Callable
+from typing import Generic, TypedDict, TypeVar, cast
 
 from django.db.models import Model, QuerySet
 from rest_framework import serializers
+from rest_framework.request import Request
 
 
-_ModelT = TypeVar("_ModelT", bound=Model)
-ContextQueryset = Callable[[Mapping[str, Any]], QuerySet[_ModelT]]
+class SerializerContext(TypedDict, total=False):
+    request: Request
+
+
+ModelT = TypeVar("ModelT", bound=Model)
+ContextQueryset = Callable[[SerializerContext], QuerySet[ModelT]]
 
 
 class ContextPrimaryKeyRelatedField(
     serializers.PrimaryKeyRelatedField,
-    Generic[_ModelT],
+    Generic[ModelT],
 ):
-    queryset: QuerySet[_ModelT] | ContextQueryset[_ModelT] | None
+    queryset: QuerySet[ModelT] | ContextQueryset[ModelT] | None
 
-    def get_queryset(self) -> QuerySet[_ModelT] | None:
+    def get_queryset(self) -> QuerySet[ModelT] | None:
         queryset = self.queryset
         if callable(queryset):
             return queryset(self.context)
-        return cast(QuerySet[_ModelT] | None, super().get_queryset())
+        return cast(QuerySet[ModelT] | None, super().get_queryset())
 ```
 
 The reusable field has no custom `__init__`, no owner assumptions, and no lookup DSL. The domain function owns the actual queryset:
 
 ```python
-from collections.abc import Mapping
-from typing import Any
-
 from django.db.models import QuerySet
+
+from common.api.fields import SerializerContext
 
 from .models import BillingProfile
 
 
-def billing_profiles_for_context(
-    context: Mapping[str, Any],
-) -> QuerySet[BillingProfile]:
+def billing_profiles_for_context(context: SerializerContext) -> QuerySet[BillingProfile]:
     request = context.get("request")
     if request is None or not request.user.is_authenticated:
         return BillingProfile.objects.none()
@@ -622,8 +643,13 @@ Because `source="customer_profile"`, validated data contains the actual related 
 ```python
 serializer.is_valid(raise_exception=True)
 assert isinstance(serializer.validated_data["customer_profile"], BillingProfile)
-invoice = serializer.save(owner=request.user)
+invoice = invoice_create(
+    owner=request.user,
+    data=InvoiceCreateDTO(**serializer.validated_data),
+)
 ```
+
+`serializer.save(owner=request.user)` remains the mechanical CRUD path. Use the DTO only when a service owns the write and needs the resolved model.
 
 The response can still return a nested object under `customer_profile`, while input uses only `customer_profile_id`:
 
@@ -646,9 +672,6 @@ Scope the `PrimaryKeyRelatedField` queryset to the current tenant or owner. An u
 Prefer separate endpoint serializers when possible. If one endpoint must accept either shape, map the two inputs to different internal keys, require exactly one, and choose the persistence path explicitly:
 
 ```python
-from typing import Any
-
-
 class InvoiceFlexibleCreateSerializer(serializers.ModelSerializer):
     customer_profile = BillingProfileInputSerializer(
         required=False,
@@ -666,7 +689,7 @@ class InvoiceFlexibleCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "reference", "customer_profile", "customer_profile_id"]
         read_only_fields = ["id"]
 
-    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+    def validate(self, attrs):
         has_nested = "customer_profile" in attrs
         has_id = "selected_customer_profile" in attrs
 
@@ -677,7 +700,7 @@ class InvoiceFlexibleCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     @transaction.atomic
-    def create(self, validated_data: dict[str, Any]) -> Invoice:
+    def create(self, validated_data) -> Invoice:
         request = self.context["request"]
         profile_data = validated_data.pop("customer_profile", None)
         selected_profile = validated_data.pop("selected_customer_profile", None)
@@ -907,11 +930,23 @@ Put reusable arrange helpers in `tests/helpers.py`. Name them `given_a_<resource
 `given_a_customer` follows the create with a retrieve so later tests use the read contract, including nested ids.
 
 ```python
-from typing import Any
+from typing import TypedDict
 
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+
+
+class CustomerProfilePayload(TypedDict):
+    phone: str
+    notes: str
+
+
+class AddressPayload(TypedDict):
+    label: str
+    city: str
+    country: str
+    is_primary: bool
 
 
 def given_a_customer(
@@ -919,10 +954,10 @@ def given_a_customer(
     api_client: APIClient,
     name: str = "Ada Lovelace",
     email: str = "ada@example.test",
-    profile: dict[str, Any] | None = None,
-    addresses: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+    profile: CustomerProfilePayload | None = None,
+    addresses: list[AddressPayload] | None = None,
+):
+    payload = {
         "name": name,
         "email": email,
         "profile": profile or {"phone": "123", "notes": ""},
@@ -946,7 +981,7 @@ def given_an_address(
     city: str = "London",
     country: str = "GB",
     is_primary: bool = True,
-) -> dict[str, Any]:
+):
     response = api_client.post(
         reverse("customer-address-list", kwargs={"customer_pk": customer_id}),
         {
@@ -1383,6 +1418,7 @@ Use this section when deciding where Django business logic belongs.
 - Keep endpoints thin: validate input, call a selector or service, return a response.
 - Keep serializers focused on validation and representation, not business writes.
 - Keep services focused on pushing state changes, business rules, and side effects.
+- Class-based services take other services or clients in `__init__`. Pass Django models into methods, never into the constructor.
 - Do not hide write-side business logic in views, serializers, managers, querysets, model `save()`, or signals.
 - If a service becomes read-heavy and stops mutating state, move the fetch logic into a selector.
 - Start with `services.py`; split into a `services/` package only when the app grows multiple service domains.
@@ -1395,11 +1431,12 @@ Use this section when a Django service needs other services, selectors, tasks, r
 
 #### Rules
 
-- Pass external clients and configurable collaborators as arguments instead of instantiating them deep in the service.
+- Inject other services and external clients through the service constructor when the service is a class.
+- Never accept a Django model in `__init__` or store one on the service instance. Pass models into methods.
 - Call selectors for read-heavy checks or visibility queries instead of duplicating fetch logic.
-- Allow services to call model methods, external clients, and async tasks when those are explicit dependencies.
+- Allow methods to call model methods, external clients, and async tasks when those collaborators were injected or passed in.
 - Keep request and response objects out of services.
-- Obtain SDK clients through the project dependency layer at the edge, then pass them into the service.
+- Obtain SDK clients through the project dependency layer at the edge, then inject them into the service.
 
 ---
 
@@ -1435,23 +1472,32 @@ Use this section when service behavior spans a multi-step workflow or shared dep
 #### Rules
 
 - Use plain functions for most mutations.
-- Use a class only when the service represents a multi-step flow or needs a small namespace around shared dependencies.
+- Use a class when the service represents a multi-step flow or needs another service as a constructor dependency.
 - If the existing app already uses a `services/` package or class-based flow services, follow that local shape.
 - Keep each method explicit, typed, and transaction-aware.
 - Do not turn ordinary create/update/delete behavior into a class just for organization.
+- Constructor parameters are other services or clients. Method parameters carry models, ids, serializer fields, and DTOs.
 
 #### Example
 
 ```python
+class ExampleNotificationService:
+    def notify_export_started(self, *, export: ExampleExport) -> None:
+        export_started_task.delay(export_id=export.id)
+
+
 class ExampleExportService:
-    def __init__(self, *, account) -> None:
-        self.account = account
+    def __init__(self, *, notification_service: ExampleNotificationService) -> None:
+        self.notification_service = notification_service
 
     @transaction.atomic
-    def start(self, *, name: str) -> ExampleExport:
-        export = ExampleExport(account=self.account, name=name, status="pending")
+    def start(self, *, account: Account, name: str) -> ExampleExport:
+        export = ExampleExport(account=account, name=name, status="pending")
         export.full_clean()
         export.save()
+        transaction.on_commit(
+            lambda: self.notification_service.notify_export_started(export=export)
+        )
         return export
 ```
 
@@ -1467,6 +1513,8 @@ Use this section when adding write-side business logic in a Django app.
 - Prefer function-based services by default.
 - Use keyword-only arguments unless the service takes zero or one argument.
 - Type annotate service inputs and return values.
+- When the caller is a serializer, accept the validated fields and call the service with `**serializer.validated_data`.
+- When the caller already has a Pydantic DTO, persist or forward it with `**data.model_dump()`.
 - Prefer names such as `invoice_create`, `invoice_send`, or `invoice_cancel`.
 - Call `full_clean()` before `save()` when the service owns persistence for new or materially changed models.
 
@@ -1482,6 +1530,8 @@ def example_create(*, account, name: str) -> ExampleModel:
     example.save()
     return example
 ```
+
+Call this as `example_create(account=account, **serializer.validated_data)` from a view or serializer. If the caller already has a Pydantic DTO, use `example_create(account=account, **data.model_dump())`.
 
 ---
 

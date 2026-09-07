@@ -29,6 +29,9 @@ class PublicSkillCatalogTests(unittest.TestCase):
                 self.assertIn("## Snippet-Driven Implementation", text)
                 self.assertRegex(text, r"## Snippet-Driven Implementation\n\nAlways ")
                 self.assertRegex(text, r"```[a-zA-Z0-9_-]*\n")
+                self.assertNotIn("dict[str, Any]", text)
+                self.assertNotIn("Dict[str, Any]", text)
+                self.assertNotIn("Mapping[str, Any]", text)
 
     def test_catalog_exposes_the_intended_granular_skills(self) -> None:
         state = load_state(ROOT)
@@ -67,10 +70,18 @@ class PublicSkillCatalogTests(unittest.TestCase):
             '"customer_profile_id": 42',
             'source="customer_profile"',
             "class ContextPrimaryKeyRelatedField(",
-            "Generic[_ModelT]",
-            "ContextQueryset = Callable[[Mapping[str, Any]], QuerySet[_ModelT]]",
-            "def get_queryset(self) -> QuerySet[_ModelT] | None",
+            "Generic[ModelT]",
+            "ContextQueryset = Callable[[SerializerContext], QuerySet[ModelT]]",
+            "def get_queryset(self) -> QuerySet[ModelT] | None",
+            "class SerializerContext(TypedDict, total=False)",
             "queryset=billing_profiles_for_context",
+            "class InvoiceCreateDTO(BaseModel)",
+            "model_config = ConfigDict(arbitrary_types_allowed=True)",
+            "**data.model_dump()",
+            "customer_create(owner=request.user, **validated_data)",
+            "**input_serializer.validated_data",
+            "notification_service: ExampleNotificationService",
+            "def __init__(self, *, notification_service: ExampleNotificationService) -> None",
             "class InvoiceWriteSerializer(serializers.ModelSerializer)",
             "Provide exactly one of customer_profile or customer_profile_id.",
             "class CustomerReadSerializer(serializers.ModelSerializer)",
@@ -97,6 +108,9 @@ class PublicSkillCatalogTests(unittest.TestCase):
 
         missing = {shape for shape in required_shapes if shape not in text}
         self.assertFalse(missing, missing)
+        self.assertNotIn("_ModelT", text)
+        self.assertNotIn("def __init__(self, *, account)", text)
+        self.assertNotIn("CustomerCreateDTO(name=validated_data", text)
         self.assertNotIn("class InvoiceByProfileIdSerializer", text)
         self.assertNotIn("UserScopedPrimaryKeyRelatedField", text)
         self.assertNotIn('user_lookup="owner"', text)
