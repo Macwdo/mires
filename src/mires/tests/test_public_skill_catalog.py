@@ -81,6 +81,12 @@ class PublicSkillCatalogTests(unittest.TestCase):
             '.select_related("profile")',
             '.prefetch_related("addresses")',
             'router.register("customers", CustomerViewSet, basename="customer")',
+            "from rest_framework_nested.routers import NestedSimpleRouter",
+            'NestedSimpleRouter(router, "customers", lookup="customer")',
+            'customers_router.register("addresses", AddressViewSet, basename="customer-address")',
+            "class AddressViewSet(viewsets.ModelViewSet)",
+            'self.kwargs["customer_pk"]',
+            'reverse("customer-address-list"',
         }
 
         missing = {shape for shape in required_shapes if shape not in text}

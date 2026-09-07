@@ -1,6 +1,6 @@
 ---
 name: mires-python-django
-description: Apply Macwdo's typed Django and Django REST Framework standards for uv, Ruff, ty, models, migrations, selectors, services, serializers, endpoints, authentication, testing, and operations. Use only when Django or DRF owns the application boundary.
+description: Apply Macwdo's typed Django and Django REST Framework standards for uv, Ruff, ty, models, migrations, selectors, services, serializers, endpoints, nested routers, authentication, testing, and operations. Use only when Django or DRF owns the application boundary.
 ---
 
 # Mires Python Django
@@ -9,7 +9,7 @@ Use this skill with `$mires-python` for Django and DRF work. Inspect the target 
 
 ## Snippet-Driven Implementation
 
-Always start Django code generation from the closest snippet in this `SKILL.md`: model, migration, selector, service, serializer, APIView, ViewSet, route, task, or test. Also consult `$mires-python` for shared Python, Celery, database, and typing shapes.
+Always start Django code generation from the closest snippet in this `SKILL.md`: model, migration, selector, service, serializer, APIView, ViewSet, nested router, route, task, or test. Also consult `$mires-python` for shared Python, Celery, database, and typing shapes.
 
 - Preserve the snippet's separation of reads, writes, validation, response shaping, transactions, and effects.
 - Adapt base classes, module locations, authentication, permissions, exception types, fixtures, and naming to the target project.
@@ -31,7 +31,7 @@ Django projects inherit the complete `$mires-python` toolchain contract:
 ```bash
 uv init
 uv python pin 3.12
-uv add django djangorestframework
+uv add django djangorestframework drf-nested-routers
 uv add --dev pytest pytest-django ruff ty
 uv sync
 ```
@@ -52,6 +52,7 @@ requires-python = ">=3.12"
 dependencies = [
   "django",
   "djangorestframework",
+  "drf-nested-routers",
 ]
 
 [dependency-groups]
@@ -302,8 +303,9 @@ This is not the default for workflows with approvals, cross-aggregate invariants
 - One-to-Many (OtM): place a `ForeignKey` on the child when one parent owns many children, such as `Customer.addresses`.
 - Forward `ForeignKey` and One-to-One reads use `select_related()`.
 - Reverse One-to-Many and Many-to-Many reads use `prefetch_related()`.
-- Nested read serializers are straightforward; use `many=True` for to-many fields and `read_only=True` when writes happen elsewhere.
-- DRF does not implement writable nested `ModelSerializer` persistence automatically. Define explicit `create()`/`update()` semantics or use separate child endpoints.
+- Nested read serializers are straightforward; use `many=True` for to-many fields and `read_only=True` when writes happen on nested-router child endpoints.
+- DRF does not implement writable nested `ModelSerializer` persistence automatically. Use an explicit transactional `create()` only for one-request aggregate creates. Give related-resource list, create, update, and delete to a `NestedSimpleRouter` child ViewSet.
+- Register a nested router when the child does not exist without its parent, such as `Customer.addresses` or `Customer.profile`. Keep a top-level router when clients look the child up independently.
 - Prefer explicit nested fields over `Meta.depth`; explicit serializers make the API contract, query requirements, and write behavior visible.
 - Use different read/create/update serializers when the wire shapes or responsibilities differ.
 
@@ -454,7 +456,7 @@ class CustomerProfileUpdateSerializer(serializers.ModelSerializer):
         fields = ["phone", "notes"]
 ```
 
-Expose profile and address updates through their own service or endpoint unless the API has explicit, tested rules for omitted children, additions, updates, deletion, ordering, and PATCH behavior.
+Expose profile and address updates through nested-router child endpoints unless the API has explicit, tested rules for omitted children, additions, updates, deletion, ordering, and PATCH behavior.
 
 ### Write Shape: `customer_profile: { ... }`
 
@@ -776,21 +778,98 @@ Keep `queryset = Customer.objects.none()` only if repository tooling requires a 
 
 Use `ModelViewSet` only while list, retrieve, create, update, and destroy remain resource-shaped. Move workflows, side effects, approvals, and multi-step operations to services or explicit `@action`/APIView boundaries.
 
+### Nested Relation ViewSets
+
+When a related model has its own list, create, update, or delete operations, give it a child `ModelViewSet` and register it with `NestedSimpleRouter`. Do not hide that CRUD behind only a nested serializer field on the parent.
+
+`lookup="customer"` on the nested router adds `customer_pk` to the URL kwargs. Filter the child queryset with that parent id and the same ownership scope as the parent. Bind the parent in `perform_create()` from the URL; do not accept a client-supplied parent id.
+
+```python
+from django.db.models import QuerySet
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, viewsets
+from rest_framework.serializers import BaseSerializer
+
+from .models import Address, Customer, CustomerProfile
+from .serializers import (
+    AddressSerializer,
+    CustomerProfileSerializer,
+    CustomerProfileUpdateSerializer,
+)
+
+
+class CustomerProfileViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_classes: dict[str, type[BaseSerializer]] = {
+        "update": CustomerProfileUpdateSerializer,
+        "partial_update": CustomerProfileUpdateSerializer,
+    }
+
+    def get_queryset(self) -> QuerySet[CustomerProfile]:
+        return CustomerProfile.objects.filter(
+            customer_id=self.kwargs["customer_pk"],
+            customer__owner=self.request.user,
+        )
+
+    def get_serializer_class(self) -> type[BaseSerializer]:
+        return self.serializer_classes.get(self.action, CustomerProfileSerializer)
+
+    def perform_create(self, serializer: BaseSerializer) -> None:
+        customer = get_object_or_404(
+            Customer.objects.filter(owner=self.request.user),
+            pk=self.kwargs["customer_pk"],
+        )
+        serializer.save(customer=customer)
+
+
+class AddressViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AddressSerializer
+
+    def get_queryset(self) -> QuerySet[Address]:
+        return Address.objects.filter(
+            customer_id=self.kwargs["customer_pk"],
+            customer__owner=self.request.user,
+        )
+
+    def perform_create(self, serializer: BaseSerializer) -> None:
+        customer = get_object_or_404(
+            Customer.objects.filter(owner=self.request.user),
+            pk=self.kwargs["customer_pk"],
+        )
+        serializer.save(customer=customer)
+```
+
+This follows the `drf-nested-routers` queryset pattern: the child filters with `self.kwargs["<lookup>_pk"]`. Prefer that explicit filter over `NestedViewSetMixin` so ownership scoping stays visible. One-to-One children still use the generated list and detail URLs.
+
 ### Router Registration
 
 ```python
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+from rest_framework_nested.routers import NestedSimpleRouter
 
-from .views import CustomerViewSet
+from .views import AddressViewSet, CustomerProfileViewSet, CustomerViewSet
 
 
 router = DefaultRouter()
 router.register("customers", CustomerViewSet, basename="customer")
 
-urlpatterns = router.urls
+customers_router = NestedSimpleRouter(router, "customers", lookup="customer")
+customers_router.register("profile", CustomerProfileViewSet, basename="customer-profile")
+customers_router.register("addresses", AddressViewSet, basename="customer-address")
+
+urlpatterns = [
+    path("", include(router.urls)),
+    path("", include(customers_router.urls)),
+]
 ```
 
-Do not include a trailing slash in the router prefix. Use the generated names such as `customer-list` and `customer-detail` in tests.
+This generates `/customers/`, `/customers/{pk}/`, `/customers/{customer_pk}/profile/`, `/customers/{customer_pk}/profile/{pk}/`, `/customers/{customer_pk}/addresses/`, and `/customers/{customer_pk}/addresses/{pk}/`.
+
+Do not include a trailing slash in the router prefix. Use the generated names such as `customer-list`, `customer-detail`, `customer-address-list`, and `customer-address-detail` in tests. A nested `reverse()` needs `kwargs={"customer_pk": customer.pk}`.
+
+Use `NestedDefaultRouter` only when the nested collection should appear on a browsable API root. Prefer `NestedSimpleRouter` for child routes. For a second nesting level, wrap the child router the same way: `NestedSimpleRouter(customers_router, "addresses", lookup="address")`.
 
 ### Nested Response Shape
 
@@ -876,9 +955,95 @@ def test_customer_create_persists_nested_relations(api_client, user):
     customer = Customer.objects.get(owner=user, email="ada@example.test")
     assert customer.profile.phone == "123"
     assert customer.addresses.get().city == "London"
+
+
+@pytest.mark.django_db
+def test_address_list_is_scoped_to_the_parent_customer(api_client, user):
+    api_client.force_authenticate(user)
+    customer = Customer.objects.create(
+        owner=user,
+        name="Ada Lovelace",
+        email="ada@example.test",
+    )
+    other = Customer.objects.create(
+        owner=user,
+        name="Other",
+        email="other@example.test",
+    )
+    Address.objects.create(
+        customer=customer,
+        label="home",
+        city="London",
+        country="GB",
+        is_primary=True,
+    )
+    Address.objects.create(
+        customer=other,
+        label="office",
+        city="Paris",
+        country="FR",
+        is_primary=True,
+    )
+
+    response = api_client.get(
+        reverse("customer-address-list", kwargs={"customer_pk": customer.pk})
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [row["city"] for row in response.data] == ["London"]
+
+
+@pytest.mark.django_db
+def test_address_create_binds_the_parent_from_the_url(api_client, user):
+    api_client.force_authenticate(user)
+    customer = Customer.objects.create(
+        owner=user,
+        name="Ada Lovelace",
+        email="ada@example.test",
+    )
+
+    response = api_client.post(
+        reverse("customer-address-list", kwargs={"customer_pk": customer.pk}),
+        {
+            "label": "home",
+            "city": "London",
+            "country": "GB",
+            "is_primary": True,
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    address = Address.objects.get(pk=response.data["id"])
+    assert address.customer_id == customer.pk
+    assert address.city == "London"
+
+
+@pytest.mark.django_db
+def test_profile_update_uses_the_nested_router(api_client, user):
+    api_client.force_authenticate(user)
+    customer = Customer.objects.create(
+        owner=user,
+        name="Ada Lovelace",
+        email="ada@example.test",
+    )
+    profile = CustomerProfile.objects.create(customer=customer, phone="123", notes="")
+
+    response = api_client.patch(
+        reverse(
+            "customer-profile-detail",
+            kwargs={"customer_pk": customer.pk, "pk": profile.pk},
+        ),
+        {"notes": "Prefers email"},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    profile.refresh_from_db()
+    assert profile.notes == "Prefers email"
 ```
 
-Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve, update, and delete. Add query-count coverage when nested list performance is a material risk.
+Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve, update, and delete on both parent and nested routes. Add query-count coverage when nested list performance is a material risk.
 
 ### Nested CRUD Completion Checklist
 
@@ -886,13 +1051,15 @@ Add wrong-owner tests to prove `get_queryset()` prevents cross-account retrieve,
 - Read serializers declare nested OtO and OtM fields explicitly.
 - To-many nested fields use `many=True`.
 - Writable nesting has explicit transactional create/update semantics.
-- Ambiguous child updates use separate endpoints or services.
+- Related-resource CRUD uses `NestedSimpleRouter` child ViewSets scoped by `self.kwargs["<lookup>_pk"]`.
+- Nested `perform_create()` binds the parent from the URL, not from the request body.
+- Ambiguous child updates use nested-router endpoints, not an implicit parent PATCH.
 - ID-based inputs reuse a small context-aware relational field instead of serializer-specific `__init__` mutation.
 - ViewSet querysets are ownership-scoped before lookup.
 - Querysets match serializer relations with `select_related` and `prefetch_related`.
 - Serializer selection matches `list`, `retrieve`, `create`, `update`, and `partial_update` contracts.
-- Router `basename` and test route names are explicit.
-- Tests cover nested output, nested persistence, permissions, and material query behavior.
+- Router `basename` and test route names are explicit, including nested names such as `customer-address-list`.
+- Tests cover nested output, nested persistence, nested-router CRUD, permissions, and material query behavior.
 
 ## Django
 
@@ -913,6 +1080,7 @@ Use for Django, DRF, models, services, selectors, serializers, endpoints, routin
 - Thin DRF views or viewsets.
 - Explicit service boundaries for writes.
 - Selectors or equivalent read-side patterns when the repo uses them.
+- `NestedSimpleRouter` child ViewSets for related-resource CRUD.
 - Route and serializer patterns that match nearby code.
 
 ### Anti-Patterns
@@ -1510,6 +1678,7 @@ Use this section when an endpoint maps to standard resource CRUD or partial CRUD
 - Use `ReadOnlyModelViewSet` for router-backed list/retrieve behavior.
 - Use `GenericViewSet` plus mixins for create-only, list-only, list-create, or other partial CRUD shapes.
 - Use `ModelViewSet` only when CRUD is genuinely mechanical or the app already uses it for that resource.
+- Register related-resource CRUD on a `NestedSimpleRouter` child ViewSet instead of stretching parent serializer writes.
 - Create shared mixin combinations only when partial CRUD repeats across the repo.
 - Drop to an APIView when the workflow does not map cleanly to resource CRUD.
 
@@ -1552,6 +1721,10 @@ Use this section when wiring DRF ViewSets and routes.
 - Register router prefixes without a trailing slash.
 - If the ViewSet omits a class-level `queryset`, provide `basename=` when registering it with the router.
 - Register ViewSets with a router instead of wiring `@action` methods manually.
+- Use `NestedSimpleRouter` when a related resource has its own list, create, update, or delete under a parent.
+- Filter nested ViewSets with `self.kwargs["<lookup>_pk"]` and the same ownership scope as the parent.
+- Bind the parent in `perform_create()` from the URL kwargs; do not trust a client-supplied parent id.
+- Include both the parent router URLs and every nested router URL list.
 - Keep action-specific settings such as `serializer_class`, `permission_classes`, `url_path`, and `detail` on the `@action` itself.
 - Use `reverse()` with route names in tests instead of hardcoded URLs.
 
@@ -1566,6 +1739,27 @@ router = DefaultRouter()
 router.register("examples", ExampleViewSet, basename="example")
 
 urlpatterns = router.urls
+```
+
+#### Nested Relation Example
+
+```python
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+from rest_framework_nested.routers import NestedSimpleRouter
+
+from apps.example.views import ExampleItemViewSet, ExampleViewSet
+
+router = DefaultRouter()
+router.register("examples", ExampleViewSet, basename="example")
+
+examples_router = NestedSimpleRouter(router, "examples", lookup="example")
+examples_router.register("items", ExampleItemViewSet, basename="example-item")
+
+urlpatterns = [
+    path("", include(router.urls)),
+    path("", include(examples_router.urls)),
+]
 ```
 
 ---

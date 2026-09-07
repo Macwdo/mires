@@ -82,7 +82,7 @@ skills:
   - name: Mires Python Django
     slug: mires-python-django
     visibility: public
-    description: "Typed Django and DRF with uv, Ruff, ty, models, services, selectors, APIs, security, testing, and operations."
+    description: "Typed Django and DRF with uv, Ruff, ty, models, services, selectors, nested routers, APIs, security, testing, and operations."
 
   - name: Mires Python LangChain
     slug: mires-python-langchain
