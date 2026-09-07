@@ -254,7 +254,7 @@ class CodexInstallCommandTests(unittest.TestCase):
     def test_profile_narrows_the_installed_skill_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             codex_home = Path(temp_dir) / ".codex"
-            result = install(codex_home, "--profile", "tenant-evaluation")
+            result = install(codex_home, "--profile", "pingou-o-que")
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((codex_home / "skills" / "mires-python-django").exists())

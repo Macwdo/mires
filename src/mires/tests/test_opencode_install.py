@@ -123,7 +123,7 @@ class OpenCodeInstallCommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             opencode_home = Path(temp_dir) / ".config" / "opencode"
             install(opencode_home)
-            result = install(opencode_home, "--profile", "tenant-evaluation")
+            result = install(opencode_home, "--profile", "pingou-o-que")
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((opencode_home / "skills" / "mires-python-django").exists())

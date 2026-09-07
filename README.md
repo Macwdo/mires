@@ -41,8 +41,8 @@ Profiles select slugs from those catalogs:
 ```yaml
 config:
   profiles:
-    - name: Tenant Evaluation
-      slug: tenant-evaluation
+    - name: pingou-o-que
+      slug: pingou-o-que
       description: "Django backend work: the core skill plus the Django and Python domains."
       using:
         mcps: [context7]
@@ -126,8 +126,8 @@ The sync repository is ordinary git. Mires keeps a clone under `~/.mires/sync/` 
 version: 1
 
 project:
-  name: Project X
-  slug: project-x
+  name: pingou-o-que
+  slug: pingou-o-que
   remote:
     repo: git@github.com:you/your-repo.git   # or MIRES_SYNC_REPO, or ~/.mires/config.yml
     branch: main
@@ -157,7 +157,7 @@ uv run mires project-sync  ...                      # same as `mires project syn
 
 `sync` copies toward the side that is missing. When both sides exist, it copies the side that moved since the last sync. If both moved, it stops and asks for `--pull` or `--push`. `--pull` and `--push` overwrite that side completely for the declared payload.
 
-A first `mires project-sync --slug project-x` in an empty directory clones the sync repository and writes the payload here. Push refuses files that look like credentials (`.env`, `*.pem`, `id_rsa*`, `credentials.json`) unless you pass `--allow-secrets`. Git that is not a fast-forward fails with the path of the clone so you can resolve it there.
+A first `mires project-sync --slug pingou-o-que` in an empty directory clones the sync repository and writes the payload here. Push refuses files that look like credentials (`.env`, `*.pem`, `id_rsa*`, `credentials.json`) unless you pass `--allow-secrets`. Git that is not a fast-forward fails with the path of the clone so you can resolve it there.
 
 ## What Lands Where
 

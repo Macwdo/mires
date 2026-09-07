@@ -28,8 +28,8 @@ config:
         hooks:
           - validate-state
 
-    - name: Tenant Evaluation
-      slug: tenant-evaluation
+    - name: pingou-o-que
+      slug: pingou-o-que
       description: "Django backend work: the core skill plus the Django and Python domains."
       using:
         mcps:

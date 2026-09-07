@@ -1064,7 +1064,7 @@ Use this section after changing Django model fields, constraints, relationships,
 - Inspect generated migrations before applying them.
 - Update `admin.py` and `apps.py` when a new model or app shape requires it.
 - Update serializers, selectors, views, services, and tests that expose the model.
-- Run the project migration commands when available; this repo family commonly uses `make migrations` and `make migrate`.
+- Run the project's established migration commands when available; otherwise use `uv run python manage.py makemigrations` and `uv run python manage.py migrate`.
 
 #### Checklist
 

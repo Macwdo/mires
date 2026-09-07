@@ -123,23 +123,23 @@ from typing import Protocol
 
 
 class PriceSource(Protocol):
-    def price_for(self, product_id: str) -> int: ...
+    def price_for(self, item_id: str) -> int: ...
 
 
 @dataclass(frozen=True, slots=True)
-class PricedProduct:
-    product_id: str
+class PricedItem:
+    item_id: str
     price_cents: int
 
 
-def price_products(
-    product_ids: Iterable[str],
+def price_items(
+    item_ids: Iterable[str],
     *,
     source: PriceSource,
-) -> list[PricedProduct]:
+) -> list[PricedItem]:
     return [
-        PricedProduct(product_id=product_id, price_cents=source.price_for(product_id))
-        for product_id in product_ids
+        PricedItem(item_id=item_id, price_cents=source.price_for(item_id))
+        for item_id in item_ids
     ]
 ```
 
@@ -353,18 +353,6 @@ Use this section when adding or reviewing exception behavior in Python modules a
 
 Use this section when changing project tooling, local commands, README setup instructions, or test/lint configuration.
 
-#### Source Repo Signals
-
-- The project is managed through `pyproject.toml` and `uv.lock`: `pyproject.toml:1`.
-- Python requires 3.12 or newer: `pyproject.toml:6`.
-- Runtime dependencies include FastAPI, Celery SQS, async SQLAlchemy, Alembic, pgvector, boto3, and LLM tooling: `pyproject.toml:8`, `pyproject.toml:11`, `pyproject.toml:12`, `pyproject.toml:18`, `pyproject.toml:23`.
-- Dev dependencies include pre-commit, pytest, pytest-asyncio, Ruff, and `ty`.
-- Ruff is configured in `pyproject.toml` with Python 3.13 target, preview mode, and Alembic excluded: `pyproject.toml:40`, `pyproject.toml:43`, `pyproject.toml:53`.
-- Pytest uses project-root pythonpath and automatic asyncio mode: `pyproject.toml:88`, `pyproject.toml:89`, `pyproject.toml:91`.
-- Pre-commit runs `uv-lock`, `ruff-check`, and `ruff-format`: `.pre-commit-config.yaml:1`, `.pre-commit-config.yaml:5`, `.pre-commit-config.yaml:11`, `.pre-commit-config.yaml:14`.
-- The Makefile is the local command surface for setup, pre-commit, Compose, LocalStack provisioning, and Alembic: `Makefile:2`, `Makefile:7`, `Makefile:12`, `Makefile:19`, `Makefile:32`.
-- README documents `make setup-project`, `make up`, API startup, and worker startup: `README.md:164`, `README.md:174`, `README.md:188`, `README.md:196`.
-
 #### Command Rules
 
 - Prefer `uv sync` for dependency installation.
@@ -553,22 +541,13 @@ Use for backend architecture, service-layer boundaries, settings usage, Docker C
 
 ### Python Service Patterns
 
-Use this section when implementing or reviewing service-layer code under `src/services` or `src/vendor/services`.
+Use this section when implementing or reviewing service-layer code in the repository's established service modules.
 
 For Celery worker wrappers, apply the Celery App Setup section later in this `SKILL.md`. For API route boundaries, apply the FastAPI sections below.
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing service, repository, dependency-injection, transaction, external-client, and error-handling boundaries override the examples below. Treat source repo signals as examples only when they match the target repository.
-
-#### Source Repo Signals
-
-- Domain service functions are async and keyword-only: `src/vendor/services/product.py:22`, `src/vendor/services/group.py:20`, `src/services/file.py:15`.
-- Services receive infrastructure dependencies explicitly: `src/vendor/services/product.py:27`, `src/vendor/services/product.py:28`, `src/vendor/services/product.py:29`, `src/vendor/services/product.py:30`, `src/services/file.py:18`, `src/services/file.py:19`.
-- Long workflows own a transaction with `db.get_session(...), db_session.begin()`: `src/vendor/services/product.py:33`, `src/vendor/services/group.py:26`.
-- Services update durable processing status during background work: `src/vendor/services/product.py:39`, `src/vendor/services/product.py:67`, `src/vendor/services/group.py:33`, `src/vendor/services/group.py:61`, `src/vendor/services/group.py:65`.
-- Celery tasks are thin wrappers that create worker-local infrastructure and delegate to services: `src/tasks.py:17`, `src/tasks.py:20`, `src/tasks.py:21`, `src/tasks.py:26`, `src/tasks.py:33`, `src/tasks.py:37`, `src/tasks.py:38`.
-- Shared infrastructure helpers live under `src/services`: S3/SQS settings helpers at `src/services/aws.py:8`, `src/services/aws.py:17`; file download at `src/services/file.py:15`.
+Run project-conventions discovery before applying this skill to an existing repository. Existing service, repository, dependency-injection, transaction, external-client, and error-handling boundaries override the examples below.
 
 #### Service Shape
 
@@ -596,30 +575,25 @@ async def do_work(
 For small route-owned operations, pass the request-scoped session and concrete collaborators explicitly. Keep optional domain fields before infrastructure dependencies and keep the signature keyword-only:
 
 ```python
-async def create_product(
+async def create_item(
     *,
-    sku: str,
+    external_id: str,
     name: str,
     price: float,
-    vendor_id: int,
+    owner_id: int,
     db_session: AsyncSession,
-    embedding_client: EmbeddingClient,
     description: str | None = None,
-    brand: str | None = None,
-    category: str | None = None,
-) -> Product:
-    product = Product(
-        sku=sku,
+) -> Item:
+    item = Item(
+        external_id=external_id,
         name=name,
         price=price,
-        vendor_id=vendor_id,
+        owner_id=owner_id,
         description=description,
-        brand=brand,
-        category=category,
     )
-    db_session.add(product)
+    db_session.add(item)
     await db_session.flush()
-    return product
+    return item
 ```
 
 For infrastructure-backed services, build clients at the route or task boundary and pass them in. The service may use settings for domain constants such as bucket names, but the network client remains injectable:
@@ -728,21 +702,9 @@ Use this section when changing local Compose services or the Makefile workflow a
 
 For deeper local infrastructure examples, continue to Docker Compose Local Infra later in this document.
 
-#### Source Repo Signals
-
-- Local Compose is in `docker-compose-dev.yml`: `docker-compose-dev.yml:1`.
-- Postgres runs with pgvector support: `docker-compose-dev.yml:2`, `docker-compose-dev.yml:4`.
-- Postgres has a readiness healthcheck and persistent volume: `docker-compose-dev.yml:10`, `docker-compose-dev.yml:16`.
-- LocalStack is used for SQS: `docker-compose-dev.yml:21`, `docker-compose-dev.yml:28`.
-- MinIO is used for S3-compatible object storage and has a healthcheck: `docker-compose-dev.yml:37`, `docker-compose-dev.yml:49`.
-- Bucket creation is a one-shot Compose service depending on healthy MinIO: `docker-compose-dev.yml:60`, `docker-compose-dev.yml:63`, `docker-compose-dev.yml:70`.
-- `make up` starts Compose, provisions LocalStack/SQS, then applies migrations: `Makefile:12`, `Makefile:15`, `Makefile:16`, `Makefile:17`.
-- `make down` removes the local Compose stack: `Makefile:26`, `Makefile:28`.
-- LocalStack queue provisioning waits for service health in `script.py`: `script.py:23`, `script.py:53`, `script.py:65`.
-
 #### Compose Rules
 
-- Keep local-only infrastructure in `docker-compose-dev.yml`.
+- Keep local-only infrastructure in the repository's existing Compose file.
 - Prefer explicit service names: `db`, `aws`, `minio`, and one-shot provisioning service names.
 - Use `depends_on` with `condition: service_healthy` for services that truly require readiness.
 - Add healthchecks for services that other services depend on.
@@ -790,14 +752,6 @@ When local end-to-end execution should be one command, add API and worker servic
 
 Use this section when composing local API, worker, Postgres, Redis, SQS or LocalStack, MinIO, or local bootstrap services.
 
-#### Source Repo Signals
-
-- Local Compose includes Postgres with pgvector, LocalStack for SQS, MinIO, and a one-shot MinIO bucket creation service: `docker-compose-dev.yml:1`, `docker-compose-dev.yml:2`, `docker-compose-dev.yml:21`, `docker-compose-dev.yml:37`, `docker-compose-dev.yml:60`.
-- Compose does not define API, Celery worker, Redis, or Celery beat services. Add them in future repos when local end-to-end behavior should be runnable from one command.
-- The Makefile starts Compose, provisions SQS, then applies migrations: `Makefile:12`, `Makefile:15`, `Makefile:16`, `Makefile:17`, `Makefile:36`.
-- SQS provisioning is handled by a local script that waits for LocalStack health and creates the queue: `script.py:23`, `script.py:53`, `script.py:65`.
-- Worker startup is documented separately instead of composed: `README.md:194`.
-
 #### Preferred Compose Shape
 
 For a FastAPI plus Celery repo, prefer one local Compose file with explicit API, worker, database, and broker services:
@@ -841,7 +795,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
 ```
 
-For SQS or LocalStack instead of Redis, mirror the source repo boundary:
+For SQS or LocalStack instead of Redis, keep the broker in its own explicit service boundary:
 
 ```yaml
 services:
@@ -895,7 +849,7 @@ volumes:
 #### Rules
 
 - Give persistent infrastructure healthchecks and make dependent services wait on health.
-- Use `pgvector/pgvector:pg16` when the app stores pgvector embeddings. Source: `docker-compose-dev.yml:4`.
+- Use a pgvector-enabled Postgres image when the app stores pgvector embeddings.
 - Keep local service names stable: `db`, `api`, `worker`, `broker`, and optional `aws` or `minio`.
 - Use `.env` for local settings, but avoid committing secrets.
 - Make `make up` idempotent enough to recreate local infra, provision broker queues or buckets, and apply migrations.
@@ -906,7 +860,7 @@ volumes:
 
 - Do not leave worker startup only in README once integration tests or full local runs depend on it.
 - Do not hardcode SQS queue URLs that depend on generated LocalStack output; derive them from settings or provisioning output.
-- Do not reset buckets or queues destructively unless local data loss is intended and clearly scoped. The source MinIO bucket service removes and recreates the bucket: `docker-compose-dev.yml:73`.
+- Do not reset buckets or queues destructively unless local data loss is intended and clearly scoped.
 - Do not copy SQS-specific `broker_transport_options` into Redis projects.
 - Do not start migrations before Postgres is healthy.
 
@@ -952,16 +906,7 @@ Use this section when adding or reviewing standalone FastAPI app setup, routes, 
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing app factory or entrypoint shape, settings pattern, dependency modules, schema placement, service boundaries, and error handling override the examples below. Treat source repo signals as examples only when they match the target repository.
-
-#### Source Repo Signals
-
-- App setup uses async lifespan to create one SQLAlchemy async engine and store it on `app.state.engine`: `src/app.py:23`, `src/app.py:27`.
-- Routers are imported at the app boundary and included with explicit prefixes and tags: `src/app.py:7`, `src/app.py:36`.
-- Request handlers receive sessions through `Depends(get_db_session)`, which pulls the engine from `request.app.state`: `src/api/dependencies/database.py:6`.
-- API dependencies are small factory functions in `src/api/dependencies`: database at `src/api/dependencies/database.py:6`, AWS clients at `src/api/dependencies/aws.py:6`.
-- Route schemas usually live beside routes, with Pydantic `BaseModel` request and response models: `src/api/routes/files/schemas.py:6`, `src/api/routes/groups/schemas.py:8`, `src/api/routes/products/schemas.py:6`.
-- ORM response schemas use `model_config = {"from_attributes": True}` where models are returned through Pydantic validation: `src/api/routes/files/schemas.py:15`, `src/api/routes/groups/schemas.py:31`.
+Run project-conventions discovery before applying this skill to an existing repository. Existing app factory or entrypoint shape, settings pattern, dependency modules, schema placement, service boundaries, and error handling override the examples below.
 
 #### Preferred Shape
 
@@ -1046,32 +991,22 @@ async def get_item(
 
 #### Anti-Patterns To Correct
 
-- Avoid `raise Response(...)` for errors. Several source routes do this, but new FastAPI code should raise `HTTPException`: `src/api/routes/products/routes.py:22`, `src/api/routes/groups/routes.py:48`, `src/api/routes/vendor/routes.py:54`.
-- Avoid returning raw `Response` for ordinary JSON API errors unless custom response body behavior is intended: `src/api/routes/files/routes.py:54`.
-- Avoid mixing `async with session.begin()` and manual `commit()` inside the same block unless the transaction behavior is intentional and tested: `src/api/routes/files/routes.py:36`, `src/api/routes/files/routes.py:41`.
-- Avoid defining schemas inline in a route module once a domain has multiple endpoints; the vendor route does this at `src/api/routes/vendor/routes.py:12`.
+- Avoid `raise Response(...)` for errors; raise `HTTPException` for ordinary FastAPI error paths.
+- Avoid returning raw `Response` for ordinary JSON API errors unless custom response body behavior is intended.
+- Avoid mixing `async with session.begin()` and manual `commit()` inside the same block unless the transaction behavior is intentional and tested.
+- Avoid defining schemas inline in a route module once a domain has multiple endpoints.
 
 ---
 
 ### FastAPI Patterns
 
-Use this section when adding or reviewing FastAPI endpoints and API-facing feature work in this repo.
+Use this section when adding or reviewing FastAPI endpoints and API-facing feature work.
 
 For narrower setup-only work, apply FastAPI App Setup above. For endpoints that enqueue Celery jobs, continue to FastAPI Celery Integration later in this document.
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing route layout, dependency injection style, settings pattern, service boundary, sync versus async database style, and error handling override the examples below. Treat source repo signals as examples only when they match the target repository.
-
-#### Source Repo Signals
-
-- The FastAPI app is a module-level `app` with an async lifespan-managed database engine: `src/app.py:23`, `src/app.py:27`, `src/app.py:34`.
-- Routers are registered in `src/app.py` with explicit prefixes and tags: `src/app.py:36`, `src/app.py:37`, `src/app.py:38`, `src/app.py:39`, `src/app.py:40`.
-- Database sessions are yielded through `Depends(get_db_session)` from `request.app.state.engine`: `src/api/dependencies/database.py:6`.
-- External clients are exposed through small dependency factories: `src/api/dependencies/aws.py:6`, `src/api/dependencies/aws.py:10`.
-- Route modules live under `src/api/routes/<domain>/routes.py`, with schemas beside them when the domain has enough surface: `src/api/routes/files/routes.py:25`, `src/api/routes/products/routes.py:13`, `src/api/routes/groups/routes.py:22`.
-- Pydantic response models are explicit on route decorators: `src/api/routes/files/routes.py:25`, `src/api/routes/groups/routes.py:53`, `src/api/routes/products/routes.py:44`.
-- Background-work start routes create a processing row, commit it, enqueue a task, and return the processing id: `src/api/routes/products/routes.py:24`, `src/api/routes/products/routes.py:30`, `src/api/routes/products/routes.py:32`, `src/api/routes/groups/routes.py:29`, `src/api/routes/groups/routes.py:35`, `src/api/routes/groups/routes.py:37`.
+Run project-conventions discovery before applying this skill to an existing repository. Existing route layout, dependency injection style, settings pattern, service boundary, sync versus async database style, and error handling override the examples below.
 
 #### Route Layout
 
@@ -1084,7 +1019,7 @@ src/api/routes/<domain>/
 └── schemas.py
 ```
 
-Use `routes.py` for HTTP orchestration and `schemas.py` for request/response models. Keep business logic in `src/services` or `src/vendor/services`, not in route functions.
+Use `routes.py` for HTTP orchestration and `schemas.py` for request/response models. Keep business logic in the repository's established service modules, not in route functions.
 
 #### Endpoint Rules
 
@@ -1094,14 +1029,14 @@ Use `routes.py` for HTTP orchestration and `schemas.py` for request/response mod
 - Keep handlers thin: validate input, load required rows, call a service or enqueue a task, return a schema.
 - Commit durable rows before sending Celery tasks.
 - Use scalar ids in task calls and responses, not ORM objects.
-- Prefer `HTTPException` for new or touched error paths. The current repo sometimes returns or raises `Response`; do not copy that pattern into new work.
+- Prefer `HTTPException` for new or touched error paths.
 - Return Pydantic models or `model_validate(...)` results rather than raw ORM rows.
 
 #### Schema Rules
 
 - Use Pydantic `BaseModel` request and response classes.
 - Set `model_config = {"from_attributes": True}` for schemas that validate ORM models.
-- Keep API schema names explicit: `StartUploadRequest`, `StartUploadResponse`, `ProductProcessingResponse`.
+- Keep API schema names explicit: `CreateItemRequest`, `CreateItemResponse`, `ItemProcessingResponse`.
 - Expose processing ids and status enums in start/status workflows.
 
 #### Async Database Rules
@@ -1129,7 +1064,7 @@ Use this section when wiring SQLAlchemy into a FastAPI app or reviewing whether 
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing database/session setup, sync versus async choice, settings source, lifespan/app factory pattern, and Alembic wiring override the examples below. Treat source repo signals as examples only when they match the target repository.
+Run project-conventions discovery before applying this skill to an existing repository. Existing database/session setup, sync versus async choice, settings source, lifespan/app factory pattern, and Alembic wiring override the examples below.
 
 #### Core Rules
 
@@ -1143,14 +1078,6 @@ Run project-conventions discovery before applying this skill to an existing repo
 - Prefer SQLAlchemy 2.x imports, typing, and query style.
 - Prefer sync SQLAlchemy for new apps unless the project already uses async routes, async drivers, and async SQLAlchemy.
 - In background tasks and Celery workers, create a new worker-local session or engine; never reuse a request-scoped session after the request ends.
-
-Repo-aligned source signals:
-
-- `src/app.py:23` defines FastAPI `lifespan`.
-- `src/app.py:27` creates the app-lifetime async engine and stores it on `app.state.engine`.
-- `src/db/database.py:11` centralizes engine creation and disposal.
-- `src/api/dependencies/database.py:6` yields one session per request.
-- `alembic/env.py:20` and `alembic/env.py:69` show Alembic using settings and async migrations instead of production startup `create_all()`.
 
 #### Recommended Sync Shape
 
@@ -1203,7 +1130,7 @@ def health(db: Session = Depends(get_db)):
 
 #### Async Variant
 
-Use async SQLAlchemy only when the project has an async driver such as `asyncpg` and async route/service boundaries. This repo is in that category: `pyproject.toml` includes `asyncpg`, `src/config.py` expects an async PostgreSQL DSN, `src/app.py` manages the async engine in lifespan, and `src/api/dependencies/database.py` yields request-scoped async sessions.
+Use async SQLAlchemy only when the project has an async driver such as `asyncpg` and established async route, service, and session boundaries.
 
 ```python
 from collections.abc import AsyncGenerator
@@ -1244,7 +1171,7 @@ async def health(db: AsyncSession = Depends(get_db)):
     return {"status": "ok"}
 ```
 
-It is also acceptable to create the async engine during `lifespan` and store it on `app.state` when matching an existing app like this repo. Even in that variant, the engine must still be app-lifetime, not request-lifetime.
+It is also acceptable to create the async engine during `lifespan` and store it on `app.state` when matching the target repository. Even in that variant, the engine must still be app-lifetime, not request-lifetime.
 
 ```python
 import logging
@@ -1335,13 +1262,6 @@ Keep `Base` in `db/base.py`, engine and session helpers in `db/session.py`, app 
 
 Use this section when an HTTP endpoint starts background work through Celery and the API needs to return a job or processing id.
 
-#### Source Repo Signals
-
-- Routes create durable processing rows, commit, enqueue, and return processing ids: `src/api/routes/products/routes.py:24`, `src/api/routes/products/routes.py:30`, `src/api/routes/products/routes.py:32`, `src/api/routes/groups/routes.py:29`, `src/api/routes/groups/routes.py:35`, `src/api/routes/groups/routes.py:37`.
-- Routes enqueue tasks lazily inside handlers to avoid import cycles during app startup: `src/api/routes/products/routes.py:18`, `src/api/routes/groups/routes.py:27`.
-- Task payloads are scalar identifiers, not ORM objects or request objects: `src/tasks.py:18`, `src/tasks.py:27`, `src/api/routes/products/routes.py:32`, `src/api/routes/groups/routes.py:37`.
-- Services update processing status after the worker starts and completes the work: `src/vendor/services/product.py:39`, `src/vendor/services/product.py:67`, `src/vendor/services/group.py:33`, `src/vendor/services/group.py:61`, `src/vendor/services/group.py:65`.
-
 #### Preferred Shape
 
 Use this route shape when a FastAPI endpoint starts background work:
@@ -1383,8 +1303,8 @@ def process_thing_task(processing_id: int, thing_id: int) -> None:
 - Keep route code responsible for validation, initial row creation, enqueueing, and response shaping.
 - Commit before enqueue. A worker must never receive an id that is still inside an uncommitted HTTP transaction.
 - Keep task payloads stable and serializable: ids, strings, numbers, booleans, and small dicts only.
-- Use task status tables when the API needs polling. Model status with a shared enum such as `ProcessingStatus`: `src/db/models/base.py:8`.
-- Let routes expose status reads separately from start endpoints. Source: `src/api/routes/products/routes.py:44`, `src/api/routes/groups/routes.py:41`.
+- Use task status tables when the API needs polling. Model status with a shared enum such as `ProcessingStatus`.
+- Let routes expose status reads separately from start endpoints.
 - Keep worker services independent of FastAPI request state.
 - Make workers receive ids and create their own resources.
 - Keep the API contract simple: start endpoint returns processing id and initial status; status endpoint returns current status; result endpoint reads completed data if applicable.
@@ -1512,19 +1432,7 @@ For FastAPI engine and session wiring, apply FastAPI SQLAlchemy Connection Setup
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing ORM style, sync versus async access, model base classes, migration pattern, settings source, and transaction boundaries override the examples below. Treat source repo signals as examples only when they match the target repository.
-
-#### Source Repo Signals
-
-- Settings require an async Postgres DSN: `src/config.py:8`.
-- Runtime database access uses SQLAlchemy async engines and sessions: `src/db/database.py:11`, `src/db/database.py:20`, `src/db/database.py:36`.
-- Models use SQLAlchemy 2.x typed mappings with a shared `Base`: `src/db/models/base.py:15`, `src/db/models/base.py:18`.
-- Common timestamps are inherited from `Base`: `src/db/models/base.py:19`, `src/db/models/base.py:20`.
-- Processing state is represented with `ProcessingStatus`: `src/db/models/base.py:8`.
-- Product embeddings use `pgvector.sqlalchemy.VECTOR` and a settings-driven dimension: `src/db/models/product.py:5`, `src/db/models/product.py:38`.
-- Product SKU and normalized brand/category names are indexed and unique: `src/db/models/product.py:21`, `src/db/models/product.py:56`, `src/db/models/product.py:65`.
-- Grouping uses both direct `Product.group_id` and an explicit `group_products` join model: `src/db/models/product.py:27`, `src/db/models/group.py:34`.
-- Local Postgres uses the pgvector image: `docker-compose-dev.yml:4`.
+Run project-conventions discovery before applying this skill to an existing repository. Existing ORM style, sync versus async access, model base classes, migration pattern, settings source, and transaction boundaries override the examples below.
 
 #### Model Rules
 
@@ -1541,7 +1449,7 @@ Run project-conventions discovery before applying this skill to an existing repo
 
 - Keep vector dimension tied to `settings.EMBEDDING_DIMENSION`.
 - Ensure an Alembic migration creates the `vector` extension before tables with vector columns.
-- Store embeddings on the model that owns similarity behavior; in this repo that is `Product.embedding`.
+- Store embeddings on the model that owns similarity behavior.
 - When changing embedding dimensions, treat it as a data migration concern, not only a model edit.
 
 #### Transaction Rules
@@ -1574,25 +1482,15 @@ Use this section when adding migrations, reviewing migration output, or changing
 
 Review Postgres Patterns above before changing model design. For local infrastructure needed to run migrations, apply the Docker Compose sections earlier in this `SKILL.md`.
 
-#### Source Repo Signals
-
-- Alembic reads the database URL from `src.config.settings.POSTGRES_URI`: `alembic/env.py:20`, `alembic/env.py:24`.
-- Autogenerate metadata comes from `Base.metadata` after importing all models: `alembic/env.py:29`, `alembic/env.py:30`, `alembic/env.py:32`.
-- Online migrations use `async_engine_from_config`, `NullPool`, and `connection.run_sync(...)`: `alembic/env.py:69`, `alembic/env.py:74`, `alembic/env.py:77`, `alembic/env.py:80`, `alembic/env.py:81`.
-- The first migration enables pgvector before vector columns are created: `alembic/versions/27d27688b18f_enable_pgvector_extension.py:21`, `alembic/versions/27d27688b18f_enable_pgvector_extension.py:23`.
-- The schema migration depends on the pgvector extension migration: `alembic/versions/11e4864688e5_alembic.py:17`.
-- Vector columns require the `pgvector` import in generated migrations: `alembic/versions/11e4864688e5_alembic.py:13`, `alembic/versions/11e4864688e5_alembic.py:92`.
-- Makefile migration commands are the local interface: `Makefile:32`, `Makefile:36`, `Makefile:40`, `Makefile:44`, `Makefile:48`, `Makefile:52`.
-
 #### Migration Workflow
 
 1. Update SQLAlchemy models.
-2. Start local database infrastructure if needed: `make up` or `docker compose -f docker-compose-dev.yml up -d db`.
-3. Create a migration with `make m-create`.
+2. Start local database infrastructure with the repository's established command.
+3. Create a migration with the repository's command or `uv run alembic revision --autogenerate -m "<change>"`.
 4. Inspect the generated file before applying it.
 5. Adjust extension ordering, enum handling, indexes, constraints, and downgrades manually.
-6. Apply with `make m-apply`.
-7. Verify state with `make m-current` or `make m-history`.
+6. Apply with the repository's command or `uv run alembic upgrade head`.
+7. Verify state with `uv run alembic current` or `uv run alembic history`.
 
 #### Async Env Rules
 
@@ -1625,7 +1523,7 @@ Review Postgres Patterns above before changing model design. For local infrastru
 - Migration applies after the current head.
 - Downgrade is present and ordered.
 - pgvector extension and vector columns are ordered correctly.
-- Makefile commands remain the documented migration entrypoint.
+- The repository's established migration command remains documented as the entrypoint.
 
 ## Celery
 
@@ -1667,17 +1565,7 @@ Use this section when adding or reviewing standalone Celery app setup, broker co
 
 #### Convention Priority
 
-Run project-conventions discovery before applying this skill to an existing repository. Existing Celery app location, settings pattern, broker configuration, task registration, worker resource lifecycle, and service boundaries override the examples below. Treat source repo signals as examples only when they match the target repository.
-
-#### Source Repo Signals
-
-- Celery app setup is centralized in `src/celery_app.py` with a named app, settings-driven broker URL, and no result backend: `src/celery_app.py:6`.
-- Broker-specific transport options are isolated behind helper functions: `src/celery_app.py:12`, `src/services/aws.py:17`.
-- The app is made default and tasks are discovered or imported after configuration: `src/celery_app.py:18`, `src/celery_app.py:19`, `src/celery_app.py:21`.
-- Tasks are registered with `@shared_task`: `src/tasks.py:17`, `src/tasks.py:26`.
-- Sync Celery task functions call async services with nested async runners and `asyncio.run(...)`: `src/tasks.py:19`, `src/tasks.py:23`, `src/tasks.py:32`, `src/tasks.py:48`.
-- Worker tasks create worker-local external clients and database engines before delegating to services: `src/tasks.py:33`, `src/tasks.py:34`, `src/tasks.py:35`, `src/tasks.py:37`.
-- Worker startup is documented as `uv run celery -A src.celery_app.app worker --loglevel=INFO`: `README.md:194`.
+Run project-conventions discovery before applying this skill to an existing repository. Existing Celery app location, settings pattern, broker configuration, task registration, worker resource lifecycle, and service boundaries override the examples below.
 
 #### Preferred Shape
 
@@ -1727,7 +1615,7 @@ When a task needs external clients, create them inside the task wrapper and pass
 
 ```python
 @shared_task
-def import_items_task(processing_id: int, file_id: int, vendor_id: int) -> None:
+def import_items_task(processing_id: int, file_id: int, source_id: int) -> None:
     async def run() -> None:
         s3_client = boto3.client("s3", **get_s3_client_kwargs())
         embedding_client = get_embedding_client()
@@ -1737,7 +1625,7 @@ def import_items_task(processing_id: int, file_id: int, vendor_id: int) -> None:
             await import_items(
                 processing_id=processing_id,
                 file_id=file_id,
-                vendor_id=vendor_id,
+                source_id=source_id,
                 engine=engine,
                 s3_client=s3_client,
                 embedding_client=embedding_client,
@@ -1752,7 +1640,7 @@ def import_items_task(processing_id: int, file_id: int, vendor_id: int) -> None:
 - Keep Celery configuration in one module. Do not scatter broker setup across tasks or services.
 - Use a settings-driven broker URL and typed settings fields.
 - Do not add a result backend unless the app reads task results from Celery. Prefer domain status rows for user-visible progress.
-- Keep broker-specific kwargs in helper functions. The source repo uses SQS kwargs through `get_sqs_client_kwargs`; Redis projects should use the same boundary with Redis-specific settings.
+- Keep broker-specific kwargs in helper functions so changing brokers does not leak transport details into tasks.
 - Call `app.set_default()` before relying on `@shared_task` task registration.
 - Import or autodiscover task modules after the app is configured.
 - Keep task wrappers thin: create resources, open engine or session scope, call one service.
@@ -1776,11 +1664,6 @@ def import_items_task(processing_id: int, file_id: int, vendor_id: int) -> None:
 Use this section when writing fast tests for services, FastAPI routes, Celery task wrappers, or broker-free background job behavior.
 
 For tests that must prove `.delay()` or `.apply_async()` reaches a real broker and worker, continue to Celery Live Worker Testing later in this document.
-
-#### Source Repo Signals
-
-- Test tooling is configured in `pyproject.toml`: pytest, pytest-asyncio, pytest addopts, and `asyncio_mode = "auto"`: `pyproject.toml:28`, `pyproject.toml:33`, `pyproject.toml:35`, `pyproject.toml:88`.
-- No `tests/` directory or `test_*.py` files are present. Treat these rules as the standard to add, not as a description of existing tests.
 
 #### Test Layers
 

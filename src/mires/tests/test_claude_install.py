@@ -105,7 +105,7 @@ class ClaudeInstallTests(unittest.TestCase):
             self.assertIn("Commit Style", (home / "CLAUDE.md").read_text())
             self.assertIn("hooks", json.loads((home / "settings.json").read_text()))
 
-            install(home, "--profile", "tenant-evaluation")
+            install(home, "--profile", "pingou-o-que")
 
             self.assertFalse((home / "skills" / "mires-react").exists())
             self.assertTrue((home / "skills" / "mires-python").exists())

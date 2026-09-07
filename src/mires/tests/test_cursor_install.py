@@ -91,7 +91,7 @@ class CursorInstallTests(unittest.TestCase):
             self.assertTrue((home / "skills" / "mires-react").exists())
             self.assertTrue((home / PLUGIN_DIR / "rules" / "commit-style.mdc").exists())
 
-            install(home, "--profile", "tenant-evaluation")
+            install(home, "--profile", "pingou-o-que")
 
             self.assertFalse((home / "skills" / "mires-react").exists())
             self.assertFalse((home / PLUGIN_DIR / "rules" / "commit-style.mdc").exists())
