@@ -121,6 +121,47 @@ class PublicSkillCatalogTests(unittest.TestCase):
             text,
         )
 
+    def test_python_skills_have_connected_direct_upload_snippets(self) -> None:
+        python_text = (ROOT / "skills" / "mires-python" / "SKILL.md").read_text()
+        django_text = (ROOT / "skills" / "mires-python-django" / "SKILL.md").read_text()
+
+        python_shapes = {
+            "class PresignedPost(TypedDict)",
+            "def generate_upload_presigned_post(",
+            "s3_client.generate_presigned_post(",
+            '["content-length-range", expected_size, expected_size]',
+        }
+        django_shapes = {
+            "### Direct S3 Upload Start And Confirm",
+            "def file_upload_start(",
+            "def file_upload_confirm(",
+            'object_key = f"files/{account.pk}/{uuid4().hex}{suffix}"',
+            "file.upload_finished_at = timezone.now()",
+            "class FileUploadConfirmSerializer(serializers.Serializer)",
+            "file_id = serializers.IntegerField(min_value=1)",
+            "permission_classes = [permissions.IsAuthenticated]",
+            "class FileViewSet(viewsets.GenericViewSet)",
+            '@action(detail=False, methods=["post"], url_path="upload-start")',
+            '@action(detail=False, methods=["post"], url_path="confirm-upload")',
+            "file = get_object_or_404(",
+            'pk=input_serializer.validated_data["file_id"]',
+            "confirmed = file_upload_confirm(file=file)",
+            "test_file_upload_confirm_persists_timestamp",
+        }
+
+        missing_python_shapes = {shape for shape in python_shapes if shape not in python_text}
+        missing_django_shapes = {shape for shape in django_shapes if shape not in django_text}
+
+        self.assertFalse(missing_python_shapes, missing_python_shapes)
+        self.assertFalse(missing_django_shapes, missing_django_shapes)
+
+        direct_upload_text = django_text.split("### Direct S3 Upload Start And Confirm", 1)[1].split(
+            "## Celery And Background Work",
+            1,
+        )[0]
+        self.assertNotIn("head_object", direct_upload_text)
+        self.assertNotIn("copy_object", direct_upload_text)
+
     def test_python_skills_share_the_uv_ruff_ty_toolchain(self) -> None:
         required = {
             "uv sync",

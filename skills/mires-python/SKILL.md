@@ -292,6 +292,44 @@ def get_s3_client(*, settings: Settings):
     return boto3.client("s3", **get_s3_client_kwargs(settings=settings))
 ```
 
+For direct browser uploads, keep the boto3 response behind a typed adapter. Sign the server-generated object key and bind the POST policy to the content type and expected size recorded by the application:
+
+```python
+from typing import TypedDict
+
+from mypy_boto3_s3 import S3Client
+
+
+class PresignedPost(TypedDict):
+    url: str
+    fields: dict[str, str]
+
+
+def generate_upload_presigned_post(
+    *,
+    bucket_name: str,
+    object_key: str,
+    content_type: str,
+    expected_size: int,
+    expires_in: int,
+    s3_client: S3Client,
+) -> PresignedPost:
+    response = s3_client.generate_presigned_post(
+        Bucket=bucket_name,
+        Key=object_key,
+        Fields={"Content-Type": content_type},
+        Conditions=[
+            {"Content-Type": content_type},
+            ["content-length-range", expected_size, expected_size],
+        ],
+        ExpiresIn=expires_in,
+    )
+    fields = {str(key): str(value) for key, value in response["fields"].items()}
+    return PresignedPost(url=str(response["url"]), fields=fields)
+```
+
+The application can expose a separate confirmation endpoint after the browser finishes the signed POST. Apply `$mires-python-django` for the connected Django and DRF start/confirm workflow.
+
 Apply the same boundary to HTTP clients. Return a configured client from an adapter function, then pass it into the service or manage it with `async with` at the call site:
 
 ```python

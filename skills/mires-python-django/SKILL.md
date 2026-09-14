@@ -280,6 +280,195 @@ For non-Django Python, use `$mires-python`. For LangChain integrations hosted in
 - Dispatch irreversible effects after a successful transaction using the project's established pattern.
 - Make retries idempotent with stable operation keys or durable status rows.
 
+### Direct S3 Upload Start And Confirm
+
+Use this connected reference when the browser uploads directly to S3-compatible storage and confirmation only records that the client completed the upload. Adapt model fields, account ownership, settings, and route names to the repository. The persisted `File` row owns the server-generated object key, declared content type and size, and confirmation timestamp.
+
+The start service creates a pending record and returns a constrained presigned POST. The confirm service only marks that record as finished; it does not call object storage:
+
+```python
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TypedDict
+from uuid import uuid4
+
+from django.utils import timezone
+from mypy_boto3_s3 import S3Client
+
+from apps.account.models import Account
+from apps.common.services.storage import (
+    PresignedPost,
+    generate_upload_presigned_post,
+)
+from apps.storage.models import File
+
+
+class FileUploadStartResult(TypedDict):
+    file: File
+    upload: PresignedPost
+
+
+def file_upload_start(
+    *,
+    account: Account,
+    filename: str,
+    content_type: str,
+    expected_size: int,
+    bucket_name: str,
+    expires_in: int,
+    s3_client: S3Client,
+) -> FileUploadStartResult:
+    original_name = Path(filename).name
+    suffix = Path(original_name).suffix.lower()
+    object_key = f"files/{account.pk}/{uuid4().hex}{suffix}"
+
+    upload = generate_upload_presigned_post(
+        bucket_name=bucket_name,
+        object_key=object_key,
+        content_type=content_type,
+        expected_size=expected_size,
+        expires_in=expires_in,
+        s3_client=s3_client,
+    )
+
+    file = File(
+        owned_by=account,
+        name=original_name,
+        path=object_key,
+        type=content_type,
+        size=expected_size,
+        upload_finished_at=None,
+    )
+    file.full_clean()
+    file.save()
+    return FileUploadStartResult(file=file, upload=upload)
+
+
+def file_upload_confirm(
+    *,
+    file: File,
+) -> File:
+    if file.upload_finished_at is not None:
+        return file
+
+    file.upload_finished_at = timezone.now()
+    file.full_clean()
+    file.save(update_fields=["upload_finished_at", "updated_at"])
+    return file
+```
+
+Use dedicated serializers for the start request, response, and confirmation. The confirmation endpoint receives `file_id`, resolves it through the account-scoped queryset, and updates the database:
+
+```python
+from django.conf import settings
+from django.db.models import QuerySet
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.request import Request
+from rest_framework.response import Response
+
+from apps.common.dependencies import get_application_default_s3
+from apps.storage.models import File
+from apps.storage.services import file_upload_confirm, file_upload_start
+
+
+class FileUploadStartSerializer(serializers.Serializer):
+    filename = serializers.CharField(allow_blank=False)
+    content_type = serializers.CharField(allow_blank=False)
+    size = serializers.IntegerField(min_value=1)
+
+
+class PresignedPostSerializer(serializers.Serializer):
+    url = serializers.URLField()
+    fields = serializers.DictField(child=serializers.CharField())
+
+
+class FileUploadStartResponseSerializer(serializers.Serializer):
+    file_id = serializers.IntegerField()
+    upload = PresignedPostSerializer()
+
+
+class FileUploadConfirmSerializer(serializers.Serializer):
+    file_id = serializers.IntegerField(min_value=1)
+
+
+class FileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = File
+        fields = ["id", "name", "type", "size", "upload_finished_at"]
+        read_only_fields = fields
+
+
+class FileViewSet(viewsets.GenericViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = FileSerializer
+
+    def get_queryset(self) -> QuerySet[File]:
+        return File.objects.filter(owned_by=self.request.user.current_account)
+
+    @action(detail=False, methods=["post"], url_path="upload-start")
+    def upload_start(self, request: Request) -> Response:
+        input_serializer = FileUploadStartSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        bucket_name, s3_client = get_application_default_s3()
+        result = file_upload_start(
+            account=request.user.current_account,
+            filename=input_serializer.validated_data["filename"],
+            content_type=input_serializer.validated_data["content_type"],
+            expected_size=input_serializer.validated_data["size"],
+            bucket_name=bucket_name,
+            expires_in=settings.AWS_PRESIGNED_EXPIRE,
+            s3_client=s3_client,
+        )
+        output = FileUploadStartResponseSerializer({
+            "file_id": result["file"].pk,
+            "upload": result["upload"],
+        })
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="confirm-upload")
+    def confirm_upload(self, request: Request) -> Response:
+        input_serializer = FileUploadConfirmSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        file = get_object_or_404(
+            self.get_queryset(),
+            pk=input_serializer.validated_data["file_id"],
+        )
+        confirmed = file_upload_confirm(file=file)
+        return Response(FileSerializer(confirmed).data, status=status.HTTP_200_OK)
+```
+
+The serializer above shows the wire shape. Add the repository's size ceiling and content-type and extension allowlists before using those values to sign a POST. Test that confirmation persists the timestamp and remains scoped to the current account:
+
+```python
+import pytest
+
+from apps.storage.models import File
+from apps.storage.services import file_upload_confirm
+
+
+@pytest.mark.django_db
+def test_file_upload_confirm_persists_timestamp(account) -> None:
+    file = File.objects.create(
+        owned_by=account,
+        name="contract.pdf",
+        path="files/1/example.pdf",
+        type="application/pdf",
+        size=128,
+    )
+
+    confirmed = file_upload_confirm(file=file)
+    repeated = file_upload_confirm(file=confirmed)
+
+    confirmed.refresh_from_db()
+    assert confirmed.upload_finished_at is not None
+    assert repeated.pk == confirmed.pk
+```
+
+Also cover authentication, another account, an unknown `file_id`, repeated confirmation, and invalid start metadata through DRF endpoint tests. This contract deliberately treats the authenticated confirmation call as the completion signal and does not verify the object in storage.
+
 ## Celery And Background Work
 
 - Keep tasks thin: accept scalar identifiers, create worker-local resources, call a service, and persist status.
