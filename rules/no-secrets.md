@@ -6,7 +6,7 @@ Never commit secrets, personal tokens, API keys, or private environment values i
 
 - Use placeholder names such as `OPENAI_API_KEY` or `DATABASE_URL` when configuration examples are necessary.
 - Reference secrets through environment variables; never inline a literal value.
-- Keep real credentials in the runtime environment or a secret manager, never in `state.yml` or any catalog entry.
+- Keep real credentials in the runtime environment or a secret manager, never in any tracked file.
 - When an example needs a host, port, or account identifier, use an obviously fake value.
 
 ## On Discovery

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mires Python"
-  short_description: "Typed Python with uv, Ruff, ty, FastAPI, Postgres, and Celery"
-  default_prompt: "Use $mires-python to apply my typed Python standards with uv, Ruff, and ty after inspecting the repository."

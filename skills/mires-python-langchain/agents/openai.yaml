@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mires Python LangChain"
-  short_description: "Typed LangChain, LangGraph, Deep Agents, models, and loaders"
-  default_prompt: "Use $mires-python-langchain with $mires-python and the uv, Ruff, ty toolchain for this task."

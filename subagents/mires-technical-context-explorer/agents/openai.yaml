@@ -1,8 +1,0 @@
-interface:
-  display_name: "mires-technical-context-explorer"
-  short_description: "Map technical ownership, constraints, feasibility, and evidence without modifying files."
-  default_prompt: "Use $mires-technical-context-explorer. Inspect repository evidence first, ask for material source direction before external research, and report a concise technical context map without modifying files or inventing architecture."
-metadata:
-  name: "mires-technical-context-explorer"
-  parent: ""
-  children: []

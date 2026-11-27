@@ -1,8 +1,0 @@
-interface:
-  display_name: "mires-business-rules-reviewer"
-  short_description: "Review requirements, business rules, evidence, and POC readiness without inventing decisions."
-  default_prompt: "Use $mires-business-rules-reviewer. Review business evidence before technical implementation, ask where to research when material source direction is missing, and report concise findings on rules, assumptions, exceptions, traceability, and POC readiness."
-metadata:
-  name: "mires-business-rules-reviewer"
-  parent: ""
-  children: []

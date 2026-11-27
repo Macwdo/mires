@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mires React"
-  short_description: "React components, state, forms, accessibility, and composition"
-  default_prompt: "Use $mires-react to apply my React standards; add $mires-next when Next.js owns the boundary."

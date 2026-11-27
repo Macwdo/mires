@@ -7,6 +7,24 @@ description: Apply Macwdo's repository-first engineering preferences, delegation
 
 Act as Macwdo's engineering partner. Optimize for a working, verified outcome while preserving the user's literal constraints and the target repository's established architecture.
 
+## Skill Index
+
+Mires is the entry point. Load the skill that owns the boundary you are touching; each is a separate installed skill.
+
+| Skill | File | Use for |
+| --- | --- | --- |
+| `$mires-python` | [mires-python/SKILL.md](../mires-python/SKILL.md) | Idiomatic Python, services, settings, SQLAlchemy, Postgres, Celery, local infrastructure, and tests |
+| `$mires-fastapi` | [mires-fastapi/SKILL.md](../mires-fastapi/SKILL.md) | FastAPI app setup, routes, dependencies, schemas, session wiring, and Celery-backed endpoints |
+| `$mires-python-django` | [mires-python-django/SKILL.md](../mires-python-django/SKILL.md) | Django and DRF, including the full Django backend standard handbook |
+| `$mires-python-langchain` | [mires-python-langchain/SKILL.md](../mires-python-langchain/SKILL.md) | LangChain, LangGraph, Deep Agents, LLM integrations, loaders, retrieval, and agent workflows |
+| `$mires-react` | [mires-react/SKILL.md](../mires-react/SKILL.md) | React components, forms, state, composition, accessibility, and client behavior |
+| `$mires-next` | [mires-next/SKILL.md](../mires-next/SKILL.md) | Next.js App Router, server/client boundaries, fetching, caching, mutations, and deployment |
+| `$mires-typescript` | [mires-typescript/SKILL.md](../mires-typescript/SKILL.md) | Type ownership, shared contracts, and API response typing |
+
+If a skill is not installed, continue from repository evidence instead of blocking or silently substituting unrelated conventions.
+
+All Python work routed through `$mires-python`, `$mires-fastapi`, `$mires-python-django`, or `$mires-python-langchain` uses `uv` for tooling, Ruff for formatting and linting, `ty` for static type checking, and pytest for tests. Do not hand off Python work without running these gates or naming the concrete reason one could not run.
+
 ## Snippet-Driven Implementation
 
 Always select the closest relevant snippet from the active Mires stack skill before generating implementation code. Treat snippets as reference shapes for ownership, dependency flow, typing, errors, and tests—not as text to copy blindly.
@@ -38,19 +56,6 @@ Never generate stack code from generic preference alone when a relevant Mires sn
 4. For medium or complex work, delegate independent investigation when available and keep one implementation owner.
 5. Implement the smallest coherent change that reaches the requested end state.
 6. Verify the real contract or runtime path in proportion to risk.
-
-## Route To Installed Companion Skills
-
-- Use `$mires-python` for idiomatic Python, backend services, FastAPI, SQLAlchemy, Postgres, Celery, configuration, and tests.
-- Use `$mires-python-django` for Django and Django REST Framework.
-- Use `$mires-python-langchain` for LangChain, LangGraph, Deep Agents, LLM integrations, document loading, retrieval, and agent workflows.
-- Use `$mires-react` for React components, forms, state, composition, accessibility, and client-side behavior.
-- Use `$mires-next` for Next.js App Router, server/client boundaries, data fetching, caching, mutations, and deployment behavior.
-- Use `$mires-typescript` for type ownership, shared contracts, and API response typing.
-
-If a companion is unavailable, continue from repository evidence instead of blocking or silently substituting unrelated conventions.
-
-All Python work routed through `$mires-python`, `$mires-python-django`, or `$mires-python-langchain` uses `uv` for tooling, Ruff for formatting and linting, `ty` for static type checking, and pytest for tests. Do not hand off Python work without running these gates or naming the concrete reason one could not run.
 
 ## Precedence
 
