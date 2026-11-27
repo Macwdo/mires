@@ -7,12 +7,12 @@ Mires is runtime-agnostic. Skills, rules, and agent prompts are plain Markdown a
 | Piece | OpenBot | Claude Code | Devin |
 | --- | --- | --- | --- |
 | Repository guide (`AGENTS.md`) | Agent workspace `AGENTS.md` | Read through `CLAUDE.md` (`@AGENTS.md`) | Read automatically |
-| Skills (`skills/`) | `openbot.create_skill`, see `MIRES-OPENBOT.md` | `npx skills add Macwdo/mires --all -a claude-code` | `npx skills add Macwdo/mires --all -a devin`, or upload as Devin skills |
+| Skills (`skills/`) | `openbot.create_skill`, see `MIRES-OPENBOT.md` | `npx skills add Macwdo/mires --skill '*' -a claude-code` | `npx skills add Macwdo/mires --skill '*' -a devin --copy`, or upload as Devin skills |
 | Agents (`openbot/agents/`, `subagents/`) | OpenBot agents, see `MIRES-OPENBOT.md` | Subagents in `.claude/agents/<slug>.md` | Playbooks, or prompts for child sessions |
 | Rules (`rules/`) | Master agent instructions | `CLAUDE.md` or `.claude/rules/` | `AGENTS.md`, or Devin knowledge |
 | Browser and screenshots | `openbot_browser` MCP + Computer Use | Playwright MCP (or Chrome DevTools MCP) | Native browser, no MCP needed |
 
-Any other agent supported by the [skills CLI](https://github.com/vercel-labs/skills) installs skills with `-a <agent>`.
+Any other agent supported by the [skills CLI](https://github.com/vercel-labs/skills) installs skills with `-a <agent>`. Do not combine `-a` with `--all`: `--all` installs to every agent.
 
 ## Capabilities
 
@@ -31,7 +31,7 @@ When a capability is missing, the agent says so and continues from evidence it h
 1. Skills, per project or globally (`-g`):
 
    ```bash
-   npx skills add Macwdo/mires --all -a claude-code
+   npx skills add Macwdo/mires --skill '*' -a claude-code
    ```
 
 2. Browser MCP for `$navegador-e-prints`:
@@ -45,7 +45,7 @@ When a capability is missing, the agent says so and continues from evidence it h
 ## Devin
 
 1. Devin reads `AGENTS.md` and `CLAUDE.md` from the repository it works in, with no setup.
-2. Skills: in the target project, run `npx skills add Macwdo/mires --all -a devin` and commit `.devin/skills/`, or add the `skills/<slug>/SKILL.md` files as personal or organization skills in Devin. For Devin for Terminal, add `-g` to install into `~/.config/devin/skills/`.
+2. Skills: in the target project, run `npx skills add Macwdo/mires --skill '*' -a devin --copy` and commit `.devin/skills/` (`--copy` writes real files instead of symlinks, so fresh checkouts have them), or add the `skills/<slug>/SKILL.md` files as personal or organization skills in Devin. For Devin for Terminal, add `-g` to install into `~/.config/devin/skills/`.
 3. Browser: `$navegador-e-prints` uses Devin's built-in browser and screenshots; no MCP is required.
 4. Agents: Devin has no persistent agent team. Use an agent file's body as a playbook, or as the prompt for a subagent or child session.
 5. Other MCP servers, if a project needs them, are added in Devin's MCP settings.
