@@ -6,7 +6,7 @@ runtime: openbot
 provider: claude
 model: claude-haiku-5-5
 reasoning_effort: high
-skills: [convencoes-de-projeto, openbot-navegador-e-prints]
+skills: [convencoes-de-projeto, navegador-e-prints]
 ---
 
 # Developer
@@ -22,4 +22,4 @@ Regra comum: o C'est Moi é o agente master. Ele define regras, memória e skill
 ## Skills
 
 - `$convencoes-de-projeto`
-- `$openbot-navegador-e-prints`
+- `$navegador-e-prints`

@@ -6,7 +6,7 @@ runtime: openbot
 provider: claude
 model: claude-haiku-5-5
 reasoning_effort: high
-skills: [openbot-navegador-e-prints]
+skills: [navegador-e-prints]
 ---
 
 # UI/UX Reviewer
@@ -21,4 +21,4 @@ Regra comum: o C'est Moi é o agente master. Ele define regras, memória e skill
 
 ## Skills
 
-- `$openbot-navegador-e-prints`
+- `$navegador-e-prints`

@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Mires is a Markdown-only repository. Every tracked file ends in `.md`. The agents run on OpenBot; see `openbot/README.md`, and `MIRES-OPENBOT.md` for recreating them in a local OpenBot. Skills install with `npx skills add Macwdo/mires` (or `bunx`).
+Mires is a Markdown-only repository. Every tracked file ends in `.md`. Mires is runtime-agnostic: skills, rules, and agent prompts work in OpenBot, Claude Code, Devin, and other agents; see `RUNTIMES.md`. `CLAUDE.md` only imports this file. The agents run on OpenBot; see `openbot/README.md`, and `MIRES-OPENBOT.md` for recreating them in a local OpenBot. Skills install with `npx skills add Macwdo/mires` (or `bunx`).
 
 ## Structure
 
@@ -8,8 +8,9 @@ Mires is a Markdown-only repository. Every tracked file ends in `.md`. The agent
 - `openbot/agents/<slug>.md`: one OpenBot agent profile per file. Update it when the agent changes in OpenBot.
 - `subagents/<slug>/AGENT.md`: pre-OpenBot role prompts, kept as reference.
 - `rules/<slug>.md`: standing rules.
+- `RUNTIMES.md`: how each runtime installs Mires, and the map from capabilities to each runtime's tools.
 
-Skills reference one another by `$slug`. Keep directory names lowercase kebab-case.
+Skills reference one another by `$slug`. Keep directory names lowercase kebab-case. Skills describe capabilities, not one runtime's MCP tools; see `rules/runtime-agnostic.md`.
 
 ## OpenBot
 

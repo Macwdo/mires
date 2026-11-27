@@ -2,7 +2,7 @@
 
 Mires now runs on OpenBot. OpenBot hosts a team of persistent local agents that talk to each other in shared channels. This folder is the versioned copy of that team: one Markdown file per agent, with the profile OpenBot uses.
 
-The old Mires CLI (`mires install`, `state.yml`, MCP and hook configuration) is gone. Skills still install with `npx skills add Macwdo/mires` for any other runtime.
+The old Mires CLI (`mires install`, `state.yml`, MCP and hook configuration) is gone. Skills still install with `npx skills add Macwdo/mires` for any other runtime; see [`RUNTIMES.md`](../RUNTIMES.md) for Claude Code and Devin.
 
 ## Team
 
@@ -11,13 +11,13 @@ The old Mires CLI (`mires install`, `state.yml`, MCP and hook configuration) is 
 | C'est Moi | [c-est-moi.md](agents/c-est-moi.md) | Master agent and coordinator | — |
 | AI Researcher | [ai-researcher.md](agents/ai-researcher.md) | Web research with cited sources | — |
 | AI Engineer | [ai-engineer.md](agents/ai-engineer.md) | Model integration, prompts, pipelines, evaluation | — |
-| Developer | [developer.md](agents/developer.md) | Backend features and fixes | `convencoes-de-projeto`, `openbot-navegador-e-prints` |
-| Developer Pattern | [developer-pattern.md](agents/developer-pattern.md) | Backend standards review | `openbot-navegador-e-prints` |
-| Frontend Developer | [frontend-developer.md](agents/frontend-developer.md) | Frontend features | `convencoes-de-projeto`, `openbot-navegador-e-prints` |
-| Frontend Pattern | [frontend-pattern.md](agents/frontend-pattern.md) | Frontend standards review | `openbot-navegador-e-prints` |
-| QA Engineer | [qa-engineer.md](agents/qa-engineer.md) | Tests and endpoint checks | `openbot-navegador-e-prints` |
-| Screenshot Reporter | [screenshot-reporter.md](agents/screenshot-reporter.md) | Visual evidence after each change | `openbot-navegador-e-prints` |
-| UI/UX Reviewer | [ui-ux-reviewer.md](agents/ui-ux-reviewer.md) | Interface and experience review | `openbot-navegador-e-prints` |
+| Developer | [developer.md](agents/developer.md) | Backend features and fixes | `convencoes-de-projeto`, `navegador-e-prints` |
+| Developer Pattern | [developer-pattern.md](agents/developer-pattern.md) | Backend standards review | `navegador-e-prints` |
+| Frontend Developer | [frontend-developer.md](agents/frontend-developer.md) | Frontend features | `convencoes-de-projeto`, `navegador-e-prints` |
+| Frontend Pattern | [frontend-pattern.md](agents/frontend-pattern.md) | Frontend standards review | `navegador-e-prints` |
+| QA Engineer | [qa-engineer.md](agents/qa-engineer.md) | Tests and endpoint checks | `navegador-e-prints` |
+| Screenshot Reporter | [screenshot-reporter.md](agents/screenshot-reporter.md) | Visual evidence after each change | `navegador-e-prints` |
+| UI/UX Reviewer | [ui-ux-reviewer.md](agents/ui-ux-reviewer.md) | Interface and experience review | `navegador-e-prints` |
 
 Work-specific agents for employer projects are not versioned here, because this repository is public.
 
