@@ -2,7 +2,7 @@
 
 Mires is a Markdown-only repository of Macwdo's engineering skills, agents, and rules. Every file is Markdown.
 
-The agents now run on OpenBot. The agent team, its routing, and its rules live in [`openbot/`](openbot/README.md). Skills still install into any runtime with the `skills` CLI.
+The agents now run on OpenBot. The agent team, its routing, and its rules live in [`openbot/`](openbot/README.md). To recreate the team in a local OpenBot, ask any OpenBot agent to read [`MIRES-OPENBOT.md`](MIRES-OPENBOT.md). Skills still install into any runtime with the `skills` CLI.
 
 ## Install
 

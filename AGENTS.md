@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Mires is a Markdown-only repository. Every tracked file ends in `.md`. The agents run on OpenBot; see `openbot/README.md`. Skills install with `npx skills add Macwdo/mires` (or `bunx`).
+Mires is a Markdown-only repository. Every tracked file ends in `.md`. The agents run on OpenBot; see `openbot/README.md`, and `MIRES-OPENBOT.md` for recreating them in a local OpenBot. Skills install with `npx skills add Macwdo/mires` (or `bunx`).
 
 ## Structure
 

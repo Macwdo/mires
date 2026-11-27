@@ -41,6 +41,6 @@ C'est Moi coordinates. In a project channel it sends:
 
 ## Rebuilding The Team
 
-To recreate an agent in OpenBot, ask C'est Moi to create it from its file in `agents/`: the front matter gives the name, title, provider, model, reasoning effort, and skills, and the body gives the profile description. Skills referenced by an agent live in `skills/` at the repository root.
+To recreate the whole team, ask an OpenBot agent to read [`MIRES-OPENBOT.md`](../MIRES-OPENBOT.md); it compares OpenBot with this folder and creates only what is missing, after your approval. To recreate one agent, ask C'est Moi to create it from its file in `agents/`: the front matter gives the name, title, provider, model, reasoning effort, and skills, and the body gives the profile description. Skills referenced by an agent live in `skills/` at the repository root.
 
 The Mires subagents in `subagents/` are role prompts from before OpenBot. They are kept as reference and can become OpenBot agents the same way.
