@@ -2,7 +2,7 @@
 
 Mires is a Markdown-only repository of Macwdo's engineering skills, agents, and rules. Every file is Markdown.
 
-The agents now run on OpenBot. The agent team, its routing, and its rules live in [`openbot/`](openbot/README.md). To recreate the team in a local OpenBot, ask any OpenBot agent to read [`MIRES-OPENBOT.md`](MIRES-OPENBOT.md). Skills still install into any runtime with the `skills` CLI.
+The agents now run on OpenBot. The agent team, its routing, and its rules live in [`openbot/`](openbot/README.md). To recreate the team in a local OpenBot, ask any OpenBot agent to read [`MIRES-OPENBOT.md`](MIRES-OPENBOT.md). Skills, rules, and agent prompts are runtime-agnostic: they work in OpenBot, Claude Code, Devin, and any agent the `skills` CLI supports. See [`RUNTIMES.md`](RUNTIMES.md).
 
 ## Install
 
@@ -24,7 +24,7 @@ Install one skill, globally, for one agent:
 npx skills add Macwdo/mires --skill mires-python-django -g -a codex
 ```
 
-`bunx skills add ...` works the same way.
+`bunx skills add ...` works the same way. Use `-a claude-code` for Claude Code and `-a devin` for Devin; [`RUNTIMES.md`](RUNTIMES.md) covers agents, MCP servers, and rules for each runtime.
 
 ## Skills
 
@@ -39,7 +39,7 @@ npx skills add Macwdo/mires --skill mires-python-django -g -a codex
 | `mires-next` | Next.js App Router, server/client boundaries, fetching, caching, mutations, security, and deployment |
 | `mires-typescript` | Type ownership, shared contracts, runtime validation, and API integration |
 | `convencoes-de-projeto` | Read a project's conventions before coding and verify with its own commands |
-| `openbot-navegador-e-prints` | Open pages in the OpenBot browser and deliver screenshots as evidence |
+| `navegador-e-prints` | Open pages in the runtime's browser and deliver screenshots as evidence |
 
 ## Layout
 
@@ -49,6 +49,8 @@ npx skills add Macwdo/mires --skill mires-python-django -g -a codex
 | `openbot/agents/<slug>.md` | OpenBot agent profiles: name, title, model, skills, and description. |
 | `subagents/<slug>/AGENT.md` | Pre-OpenBot role prompts, kept as reference. |
 | `rules/<slug>.md` | Standing rules that apply across work. |
+| `RUNTIMES.md` | Install steps per runtime and the capability-to-tool map. |
+| `CLAUDE.md` | Imports `AGENTS.md` for Claude Code. |
 
 ## Adding A Skill
 
