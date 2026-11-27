@@ -242,7 +242,7 @@ An MCP server is described once, in the shape `mcp.json` already uses (`command`
 
 ## Adding A Skill
 
-Create `skills/<slug>/SKILL.md` with all actionable guidance, a `## Snippet-Driven Implementation` section, and concrete implementation snippets. Add `agents/openai.yaml` for public runtime metadata, declare the slug in `state.yml`, and add it to each profile that should install it. Reference companion skills by `$slug`; do not create nested instruction trees.
+Create `skills/<slug>/SKILL.md` with all actionable guidance, a `## Snippet-Driven Implementation` section, and concrete implementation snippets. Add `agents/openai.yaml` for public runtime metadata, declare the slug in `state.yml`, and add it to each profile that should install it. Reference companion skills by `$slug`; do not create nested instruction trees. A public skill may bundle Markdown reference documents under `references/`; only the top-level `SKILL.md` is an instruction entry point, and `references/` holds `.md` files only.
 
 ## Security
 

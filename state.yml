@@ -16,6 +16,7 @@ config:
           - mires-react
           - mires-next
           - mires-typescript
+          - django-cookiecutter-standard
         subagents:
           - mires-technical-context-explorer
           - mires-technical-standards-reviewer
@@ -103,6 +104,11 @@ skills:
     slug: mires-typescript
     visibility: public
     description: "TypeScript type ownership, shared contracts, and API response typing across frontend and Node codebases."
+
+  - name: Django Cookiecutter Standard
+    slug: django-cookiecutter-standard
+    visibility: public
+    description: "Django 6 and DRF backend standard from the cookiecutter handbook: architecture, conventions, API, security, testing, operations, and recipes."
 
 subagents:
   - name: Mires Technical Context Explorer

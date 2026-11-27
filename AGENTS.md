@@ -36,7 +36,7 @@ Mires installs into Codex, Cursor, Claude Code, and OpenCode. Each is an adapter
 
 Skills keep all actionable guidance in one self-contained `SKILL.md` with YAML front matter (`name`, `description`); `agents/openai.yaml` is runtime metadata, not an instruction source. Every public `SKILL.md` must include `## Snippet-Driven Implementation` and concrete code fences. Generated code starts from the closest relevant snippet, adapted to the target repository's conventions. Subagents use `AGENT.md` with front matter (`name`, `description`, `parent`, `children`) plus `agents/openai.yaml`. Front matter `name` must equal the slug declared in `state.yml`.
 
-Skills are granular, declared catalog entries. Shared Python backend guidance belongs to `mires-python`; Django and the LangChain ecosystem are explicit companions at `mires-python-django` and `mires-python-langchain`. React and Next.js are separate skills at `mires-react` and `mires-next`. Skills reference one another by `$slug`, never through nested instruction files.
+Skills are granular, declared catalog entries. Shared Python backend guidance belongs to `mires-python`; Django and the LangChain ecosystem are explicit companions at `mires-python-django` and `mires-python-langchain`. React and Next.js are separate skills at `mires-react` and `mires-next`. Skills reference one another by `$slug`, never through nested instruction files. A public skill may bundle Markdown reference documents under `references/` (for example `django-cookiecutter-standard`); only the top-level `SKILL.md` is an instruction entry point.
 
 Keep directory names lowercase kebab-case.
 

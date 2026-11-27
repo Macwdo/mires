@@ -1,0 +1,4 @@
+interface:
+  display_name: "Django Cookiecutter Standard"
+  short_description: "Django 6 and DRF backend standard handbook"
+  default_prompt: "Use $django-cookiecutter-standard to follow the Django backend standard for this task."

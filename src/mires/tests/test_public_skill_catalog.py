@@ -25,7 +25,14 @@ class PublicSkillCatalogTests(unittest.TestCase):
                 self.assertEqual(read_frontmatter(skill_path)["name"], name)
                 self.assertTrue(metadata_path.exists())
                 self.assertIn(f"${name}", metadata_path.read_text())
-                self.assertFalse((package / "references").exists())
+                nested_skills = [path for path in package.rglob("SKILL.md") if path != skill_path]
+                self.assertEqual(nested_skills, [])
+                non_markdown = (
+                    [path for path in (package / "references").rglob("*") if path.is_file() and path.suffix != ".md"]
+                    if (package / "references").exists()
+                    else []
+                )
+                self.assertEqual(non_markdown, [])
                 self.assertIn("## Snippet-Driven Implementation", text)
                 self.assertRegex(text, r"## Snippet-Driven Implementation\n\nAlways ")
                 self.assertRegex(text, r"```[a-zA-Z0-9_-]*\n")
@@ -47,6 +54,7 @@ class PublicSkillCatalogTests(unittest.TestCase):
                 "mires-react",
                 "mires-next",
                 "mires-typescript",
+                "django-cookiecutter-standard",
             },
         )
 
