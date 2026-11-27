@@ -1,6 +1,8 @@
 # Mires
 
-Mires is a Markdown-only repository of Macwdo's engineering skills, subagents, and rules. Every file is Markdown.
+Mires is a Markdown-only repository of Macwdo's engineering skills, agents, and rules. Every file is Markdown.
+
+The agents now run on OpenBot. The agent team, its routing, and its rules live in [`openbot/`](openbot/README.md). Skills still install into any runtime with the `skills` CLI.
 
 ## Install
 
@@ -36,13 +38,16 @@ npx skills add Macwdo/mires --skill mires-python-django -g -a codex
 | `mires-react` | React composition, state ownership, forms, accessibility, performance, and tests |
 | `mires-next` | Next.js App Router, server/client boundaries, fetching, caching, mutations, security, and deployment |
 | `mires-typescript` | Type ownership, shared contracts, runtime validation, and API integration |
+| `convencoes-de-projeto` | Read a project's conventions before coding and verify with its own commands |
+| `openbot-navegador-e-prints` | Open pages in the OpenBot browser and deliver screenshots as evidence |
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
 | `skills/<slug>/SKILL.md` | The skill's complete guidance in one file. `skills/mires/SKILL.md` is the index. |
-| `subagents/<slug>/AGENT.md` | Subagent behavior. |
+| `openbot/agents/<slug>.md` | OpenBot agent profiles: name, title, model, skills, and description. |
+| `subagents/<slug>/AGENT.md` | Pre-OpenBot role prompts, kept as reference. |
 | `rules/<slug>.md` | Standing rules that apply across work. |
 
 ## Adding A Skill

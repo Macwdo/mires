@@ -20,6 +20,8 @@ Mires is the entry point. Load the skill that owns the boundary you are touching
 | `$mires-react` | [mires-react/SKILL.md](../mires-react/SKILL.md) | React components, forms, state, composition, accessibility, and client behavior |
 | `$mires-next` | [mires-next/SKILL.md](../mires-next/SKILL.md) | Next.js App Router, server/client boundaries, fetching, caching, mutations, and deployment |
 | `$mires-typescript` | [mires-typescript/SKILL.md](../mires-typescript/SKILL.md) | Type ownership, shared contracts, and API response typing |
+| `$convencoes-de-projeto` | [convencoes-de-projeto/SKILL.md](../convencoes-de-projeto/SKILL.md) | Read a project's conventions before coding, in any stack |
+| `$openbot-navegador-e-prints` | [openbot-navegador-e-prints/SKILL.md](../openbot-navegador-e-prints/SKILL.md) | OpenBot browser checks and screenshots as evidence |
 
 If a skill is not installed, continue from repository evidence instead of blocking or silently substituting unrelated conventions.
 
