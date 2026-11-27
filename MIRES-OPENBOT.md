@@ -19,7 +19,7 @@ Use a local clone of `git@github.com:Macwdo/mires.git` (or `https://github.com/M
    - **missing**: no OpenBot agent has that name;
    - **different**: it exists, but title, description, model, effort, or skills differ;
    - **ok**: it matches.
-3. Call `openbot.list_local_skills` and check that every skill named in any agent's `skills` exists in the local library. If an agent still has the old `openbot-navegador-e-prints`, propose replacing it with `navegador-e-prints`.
+3. Call `openbot.list_local_skills` and check that every skill named in any agent's `skills` exists in the local library. If an agent still has the old `openbot-navegador-e-prints`, propose replacing it with `navegador-e-prints`: install the new skill, then remove the old one from that agent. If OpenBot offers no tool to remove a skill from an agent, report it so the owner removes it.
 4. Ignore OpenBot agents that are not in `openbot/agents/`. Never delete them.
 
 ## 3. Confirm The Plan
