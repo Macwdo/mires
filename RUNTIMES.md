@@ -40,7 +40,7 @@ When a capability is missing, the agent says so and continues from evidence it h
    claude mcp add playwright -- npx @playwright/mcp@latest
    ```
 
-3. Agents: copy a file from `subagents/<slug>/AGENT.md` or `openbot/agents/<slug>.md` to `.claude/agents/<slug>.md`. Keep `name` and `description` in the front matter, drop the OpenBot-only keys (`runtime`, `provider`, `display_name`, `title`, `reasoning_effort`, `skills`), and set `model` only to a model Claude Code lists.
+3. Agents: copy a file from `subagents/<slug>/AGENT.md` or `openbot/agents/<slug>.md` to `.claude/agents/<slug>.md`. The front matter needs `name` and `description`; `subagents/` files already have both, while for `openbot/agents/` files write `description` from the "Descrição" section. Drop the OpenBot-only keys (`runtime`, `provider`, `display_name`, `title`, `reasoning_effort`, `skills`), and set `model` only to a model Claude Code lists.
 
 ## Devin
 
